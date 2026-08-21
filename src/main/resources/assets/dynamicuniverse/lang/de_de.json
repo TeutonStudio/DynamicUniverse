@@ -2,7 +2,7 @@
   "generator.dynamicuniverse.universe": "Universe",
   "dynamicuniverse.dimension_stack.disabled": "Dimension Stack ist bei Universe deaktiviert, da Universe eigene Dimensionsübergänge verwaltet.",
   "dynamicuniverse.universe_config.title": "Universe konfigurieren",
-  "dynamicuniverse.universe_config.galaxies.subtitle": "Galaxien",
+  "dynamicuniverse.universe_config.tree.subtitle": "Galaxien und Systeme durch Anklicken auf- oder zuklappen",
   "dynamicuniverse.universe_config.galaxy": "Galaxie: %s",
   "dynamicuniverse.universe_config.solar_system": "Sonnensystem: %s",
   "dynamicuniverse.universe_config.cloud": "Wolke: %s",
