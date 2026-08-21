@@ -20,6 +20,14 @@ Each planet owns one or more core-to-surface stacks. The innermost planet-core l
 
 Planet-core size is a separate, positive configuration value. It does not silently alter a celestial body's collision radius.
 
+## World-creation UI
+
+The client adds a `Universe …` entry point to Minecraft's regular Create World screen. It opens a separate DynamicUniverse selection layer and never replaces or modifies the vanilla tabs, their settings, or their final Create action.
+
+The selection layer exposes Vanilla/other world types, `Universe`, and `Dimension Stack`. The customization control remains available for Vanilla/other types and Universe. For Dimension Stack it is visibly disabled, and an adjacent explanation screen documents that unconstrained edits could create contradictory transitions and damaged world data.
+
+Universe customization is a vertical hierarchy: galaxy → solar system → star and planet. The star has its own settings entry. The planet settings currently edit a validated creation draft: number of dimensions between space and planet core (`0..8`), a power-of-two coordinate transition factor (`1..64`), and core size (`8..128`, in blocks). The draft is held only for the lifetime of its Create World screen. Persisting it into a created save and applying it to generators/portals is deliberately deferred to the server-side creation bridge, so this UI cannot alter an existing world or silently change vanilla generation.
+
 ## Horizontal connection topology
 
 Each world layer has a finite square period `L`. X and Z wrap independently, forming a torus. The canonical coordinate is:
