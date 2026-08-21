@@ -66,6 +66,7 @@ dependencies {
     implementation "thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}"
 
     // Compatibility targets, deliberately optional and never referenced from common code.
+    compileOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"
     runtimeOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"
     // Required by the selected Immersive Portals runtime artifact.
     runtimeOnly "maven.modrinth:9s6osm5g:${cloth_config_modrinth_version_id}"

@@ -20,7 +20,6 @@ class UniverseHierarchyScreen(
     private val expandedGalaxies = mutableSetOf<Int>()
     private val expandedSolarSystems = mutableSetOf<SolarSystemAddress>()
     private val expandedStars = mutableSetOf<SolarSystemAddress>()
-    private val expandedPlanets = mutableSetOf<PlanetAddress>()
     private var tree: UniverseVerticalList? = null
 
     override fun init() {
@@ -54,6 +53,17 @@ class UniverseHierarchyScreen(
     }
 
     override fun onClose() {
+        val validation = UniverseWorldCreationDraftStore.get(createWorldScreen).validation()
+        if (!validation.isValid) {
+            minecraft?.setScreen(
+                WorldCreationInfoScreen(
+                    this,
+                    Component.translatable("dynamicuniverse.universe_config.invalid.title"),
+                    listOf(Component.translatable("dynamicuniverse.universe_config.invalid.body", validation.invalidPlanets.size)),
+                ),
+            )
+            return
+        }
         UniverseWorldCreationDraftStore.freezeWorldType(createWorldScreen)
         minecraft?.setScreen(parent)
     }
@@ -128,18 +138,9 @@ class UniverseHierarchyScreen(
     }
 
     private fun MutableList<UniverseListItem>.addPlanetItems(address: PlanetAddress, planet: EditablePlanet) {
-        val expanded = address in expandedPlanets
-        add(UniverseListItem(expandLabel(expanded, Component.translatable("dynamicuniverse.universe_config.planet", planet.name)), SOLAR_SYSTEM_CHILD_INDENT) {
-            if (!expandedPlanets.add(address)) expandedPlanets.remove(address)
-            rebuildTree()
-        })
-        if (!expanded) return
-        add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.dimension_settings"), BODY_CHILD_INDENT) {
+        add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.planet", planet.name), SOLAR_SYSTEM_CHILD_INDENT) {
             minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, this@UniverseHierarchyScreen, address.galaxyIndex, address.entryIndex, address.planetIndex))
         })
-        planet.dimensions.forEach { dimension ->
-            add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.dimension", dimension.displayName), BODY_CHILD_INDENT, onSelect = {}))
-        }
     }
 
     private fun openCloudSettings(cloud: EditableCloud) {

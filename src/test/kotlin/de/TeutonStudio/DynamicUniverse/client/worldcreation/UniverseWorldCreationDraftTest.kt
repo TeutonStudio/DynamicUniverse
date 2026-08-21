@@ -2,6 +2,8 @@ package de.TeutonStudio.DynamicUniverse.client.worldcreation
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class UniverseWorldCreationDraftTest {
     @Test
@@ -46,5 +48,23 @@ class UniverseWorldCreationDraftTest {
         assertEquals(4, system.planets.single().stacks.single().layersInnerToOuter.size)
         assertEquals(1, graph.routesFrom(star.stacks.single().layersInnerToOuter.first().dimension).size)
         assertEquals(1, graph.routesFrom(system.planets.single().stacks.single().layersInnerToOuter.first().dimension).size)
+    }
+
+    @Test
+    fun `moving a selected intermediate dimension can expose an invalid bedrock to air boundary`() {
+        val planet = EditablePlanet.default()
+
+        assertTrue(planet.dimensionValidation.isValid)
+        assertFalse(planet.moveDimension(1, 1).dimensionValidation.isValid)
+    }
+
+    @Test
+    fun `adding and removing only changes intermediate dimensions`() {
+        val planet = EditablePlanet.default()
+        val added = planet.addDimension()
+
+        assertEquals(planet.intermediateDimensionCount + 1, added.intermediateDimensionCount)
+        assertTrue(added.dimensionValidation.isValid)
+        assertEquals(planet.dimensionStack.layers, added.removeDimension(added.dimensionStack.layers.lastIndex - 1).dimensionStack.layers)
     }
 }

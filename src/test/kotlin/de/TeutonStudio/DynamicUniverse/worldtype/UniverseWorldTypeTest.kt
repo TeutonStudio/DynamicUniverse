@@ -29,6 +29,7 @@ class UniverseWorldTypeTest {
                                         "main",
                                         listOf(
                                             PlanetDimensionLayer("core", PlanetDimensionRole.PLANET_CORE, DimensionId("dynamicuniverse:sun/core"), DimensionScale(1)),
+                                            PlanetDimensionLayer("radiative", PlanetDimensionRole.INNER, DimensionId("dynamicuniverse:sun/radiative"), DimensionScale(1)),
                                             PlanetDimensionLayer("corona", PlanetDimensionRole.SKY, DimensionId("dynamicuniverse:sun/corona")),
                                         ),
                                     ),
@@ -41,9 +42,10 @@ class UniverseWorldTypeTest {
                                     stacks = listOf(
                                         PlanetDimensionStack(
                                             id = "main",
-                                            layersInnerToOuter = listOf(
-                                                PlanetDimensionLayer("core", PlanetDimensionRole.PLANET_CORE, core, DimensionScale(8)),
-                                                PlanetDimensionLayer("surface", PlanetDimensionRole.SKY, surface),
+                                                layersInnerToOuter = listOf(
+                                                    PlanetDimensionLayer("core", PlanetDimensionRole.PLANET_CORE, core, DimensionScale(8)),
+                                                    PlanetDimensionLayer("mantle", PlanetDimensionRole.INNER, DimensionId("dynamicuniverse:earth/mantle"), DimensionScale(8)),
+                                                    PlanetDimensionLayer("surface", PlanetDimensionRole.SKY, surface),
                                             ),
                                             outerToUniverseScale = DimensionScale(2),
                                         ),
@@ -57,12 +59,12 @@ class UniverseWorldTypeTest {
         )
 
         val graph = worldType.connectionGraph()
-        val coreToSurface = graph.routesFrom(core).single()
+        val coreToMantle = graph.routesFrom(core).single()
         val source = DimensionPosition(-5, 80, 7)
-        val scaled = coreToSurface.targetPosition(source)
+        val scaled = coreToMantle.targetPosition(source)
 
         assertEquals(DimensionPosition(-40, 80, 56), scaled)
-        assertEquals(source, graph.transition(surface, "${coreToSurface.id}:reverse", scaled)?.position)
+        assertEquals(source, graph.transition(coreToMantle.target, "${coreToMantle.id}:reverse", scaled)?.position)
         assertEquals(universe, graph.routesFrom(surface).single { it.target == universe }.target)
     }
 }

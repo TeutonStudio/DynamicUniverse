@@ -3,9 +3,23 @@ package de.TeutonStudio.DynamicUniverse.topology
 import java.lang.Math.floorMod
 
 data class HorizontalPeriod(val blocks: Long) {
-    init { require(blocks > 0 && blocks % 16L == 0L) { "Period must be positive and chunk-aligned." } }
+    init {
+        require(blocks > 0 && blocks % 16L == 0L) { "Period must be positive and chunk-aligned." }
+        require(blocks <= MAX_SUPPORTED_BLOCKS) { "Period exceeds the supported Minecraft/IP wrapping range." }
+    }
 
-    fun canonical(coordinate: Long): Long = floorMod(coordinate + blocks / 2, blocks) - blocks / 2
+    /** Avoids adding half the period to an arbitrary Long coordinate and therefore cannot overflow. */
+    fun canonical(coordinate: Long): Long {
+        val remainder = floorMod(coordinate, blocks)
+        return if (remainder >= blocks / 2) remainder - blocks else remainder
+    }
+
+    val halfBlocks: Long get() = blocks / 2
+
+    companion object {
+        /** Below the vanilla world border and representable by Immersive Portals' Int API. */
+        const val MAX_SUPPORTED_BLOCKS: Long = 29_999_984L
+    }
 }
 
 data class HorizontalPosition(val x: Long, val z: Long)

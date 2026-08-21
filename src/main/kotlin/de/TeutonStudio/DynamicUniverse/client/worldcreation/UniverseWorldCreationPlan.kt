@@ -17,6 +17,7 @@ import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
  * starts. A later server bridge consumes this exact result instead of re-deriving stacks.
  */
 fun UniverseWorldCreationDraft.toWorldType(id: String = "dynamicuniverse:created"): UniverseWorldType {
+    require(validation().isValid) { "A Universe with incompatible bedrock/air boundaries cannot be created." }
     val universeDimension = DimensionId("dynamicuniverse:created/universe")
     return UniverseWorldType(
         id = id,
@@ -56,6 +57,8 @@ private fun EditableDimensionStack.toStack(path: String, name: String, factor: I
                 },
                 dimension = DimensionId("dynamicuniverse:created/$path/${layer.id}"),
                 toOuterScale = if (index == layers.lastIndex) null else DimensionScale(factor.toLong()),
+                innerBoundarySurface = layer.innerBoundarySurface,
+                outerBoundarySurface = layer.outerBoundarySurface,
             )
         },
     )

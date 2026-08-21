@@ -4,6 +4,7 @@ import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnection
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionGraph
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
+import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
 
 /** The configurable Universe world type. It has no client or portal-mod dependency. */
 data class UniverseWorldType(
@@ -99,6 +100,7 @@ private fun PlanetDimensionStack.connectionsTo(ownerId: String, universeDimensio
             source = inner.dimension,
             target = outer.dimension,
             scale = requireNotNull(inner.toOuterScale),
+            boundarySurface = requireNotNull(inner.outerBoundarySurface),
         )
     }
     return radial + DimensionConnection(
@@ -106,6 +108,7 @@ private fun PlanetDimensionStack.connectionsTo(ownerId: String, universeDimensio
         source = layersInnerToOuter.last().dimension,
         target = universeDimension,
         scale = outerToUniverseScale,
+        boundarySurface = BoundarySurface.AIR,
     )
 }
 
@@ -126,6 +129,11 @@ data class PlanetDimensionStack(
             requireNotNull(layer.toOuterScale) { "Every inner boundary needs an explicit dimension scale." }
         }
         require(layersInnerToOuter.last().toOuterScale == null) { "The sky layer's next boundary is the stack scale." }
+        layersInnerToOuter.windowed(2).forEach { (inner, outer) ->
+            require(inner.outerBoundarySurface == outer.innerBoundarySurface) {
+                "Adjacent dimensions must connect bedrock-to-bedrock or air-to-air."
+            }
+        }
     }
 }
 
@@ -136,10 +144,28 @@ data class PlanetDimensionLayer(
     val role: PlanetDimensionRole,
     val dimension: DimensionId,
     val toOuterScale: DimensionScale? = null,
+    val innerBoundarySurface: BoundarySurface? = defaultInnerSurface(role),
+    val outerBoundarySurface: BoundarySurface? = defaultOuterSurface(role),
 ) {
     init {
         requireNodeId(id, "Dimension layer")
+        if (role == PlanetDimensionRole.PLANET_CORE) require(innerBoundarySurface == null)
+        if (role == PlanetDimensionRole.SKY) require(outerBoundarySurface == null)
+        if (role != PlanetDimensionRole.PLANET_CORE) requireNotNull(innerBoundarySurface)
+        if (role != PlanetDimensionRole.SKY) requireNotNull(outerBoundarySurface)
     }
+}
+
+private fun defaultInnerSurface(role: PlanetDimensionRole): BoundarySurface? = when (role) {
+    PlanetDimensionRole.PLANET_CORE -> null
+    PlanetDimensionRole.SKY -> BoundarySurface.AIR
+    else -> BoundarySurface.BEDROCK
+}
+
+private fun defaultOuterSurface(role: PlanetDimensionRole): BoundarySurface? = when (role) {
+    PlanetDimensionRole.SKY -> null
+    PlanetDimensionRole.PLANET_CORE -> BoundarySurface.BEDROCK
+    else -> BoundarySurface.AIR
 }
 
 private fun requireNodeId(id: String, type: String) {
