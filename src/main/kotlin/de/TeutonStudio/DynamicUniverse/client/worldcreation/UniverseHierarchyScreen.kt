@@ -19,6 +19,7 @@ class UniverseHierarchyScreen(
 ) : Screen(Component.translatable("dynamicuniverse.universe_config.title")) {
     private val expandedGalaxies = mutableSetOf<Int>()
     private val expandedSolarSystems = mutableSetOf<SolarSystemAddress>()
+    private val expandedPlanets = mutableSetOf<PlanetAddress>()
     private var tree: UniverseVerticalList? = null
 
     override fun init() {
@@ -118,22 +119,48 @@ class UniverseHierarchyScreen(
             },
         )
         solarSystem.planets.forEachIndexed { planetIndex, planet ->
+            val address = PlanetAddress(galaxyIndex, entryIndex, planetIndex)
+            val expanded = address in expandedPlanets
             add(
                 UniverseListItem(
-                    Component.translatable("dynamicuniverse.universe_config.planet", planet.name),
+                    expandLabel(expanded, Component.translatable("dynamicuniverse.universe_config.planet", planet.name)),
                     SOLAR_SYSTEM_CHILD_INDENT,
+                ) {
+                    if (!expandedPlanets.add(address)) expandedPlanets.remove(address)
+                    rebuildTree()
+                },
+            )
+            if (!expanded) return@forEachIndexed
+            add(
+                UniverseListItem(
+                    Component.translatable("dynamicuniverse.universe_config.planet_settings", planet.name),
+                    PLANET_CHILD_INDENT,
                 ) {
                     minecraft?.setScreen(
                         PlanetConfigurationScreen(
                             createWorldScreen,
                             this@UniverseHierarchyScreen,
-                            galaxyIndex,
-                            entryIndex,
-                            planetIndex,
+                            PlanetSettingsAddress(galaxyIndex, entryIndex, planetIndex),
                         ),
                     )
                 },
             )
+            planet.moons.forEachIndexed { moonIndex, moon ->
+                add(
+                    UniverseListItem(
+                        Component.translatable("dynamicuniverse.universe_config.moon", moon.name),
+                        PLANET_CHILD_INDENT,
+                    ) {
+                        minecraft?.setScreen(
+                            PlanetConfigurationScreen(
+                                createWorldScreen,
+                                this@UniverseHierarchyScreen,
+                                PlanetSettingsAddress(galaxyIndex, entryIndex, planetIndex, moonIndex),
+                            ),
+                        )
+                    },
+                )
+            }
         }
     }
 
@@ -159,6 +186,12 @@ class UniverseHierarchyScreen(
         val entryIndex: Int,
     )
 
+    private data class PlanetAddress(
+        val galaxyIndex: Int,
+        val entryIndex: Int,
+        val planetIndex: Int,
+    )
+
     private companion object {
         const val TITLE_Y = 20
         const val SUBTITLE_Y = 38
@@ -167,6 +200,7 @@ class UniverseHierarchyScreen(
         const val ROW_HEIGHT = 20
         const val GALAXY_CHILD_INDENT = 1
         const val SOLAR_SYSTEM_CHILD_INDENT = 2
+        const val PLANET_CHILD_INDENT = 3
         const val TEXT_COLOR = 0xFFFFFF
         const val SECONDARY_TEXT_COLOR = 0xA0A0A0
     }

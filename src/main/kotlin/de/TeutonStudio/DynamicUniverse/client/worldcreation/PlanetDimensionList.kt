@@ -9,16 +9,16 @@ import net.minecraft.network.chat.Component
 /**
  * Scrollable editable sublist for a planet's radial dimensions.
  *
- * Each dimension exposes its inner and outer edge. A red row immediately below
- * an invalid shared edge identifies the exact transition that cannot be packed.
+ * Boundaries are supplied by registered dimension descriptors. A red row immediately
+ * below an invalid shared edge identifies a registry combination that cannot be packed.
  */
 class PlanetDimensionList(
     minecraft: Minecraft,
     width: Int,
     listHeight: Int,
     top: Int,
-    private val planet: () -> EditablePlanet,
-    private val updatePlanet: (transform: (EditablePlanet) -> EditablePlanet) -> Unit,
+    private val settings: () -> EditablePlanetSettings,
+    private val updateSettings: (transform: (EditablePlanetSettings) -> EditablePlanetSettings) -> Unit,
 ) : ObjectSelectionList<PlanetDimensionList.Entry>(minecraft, width, listHeight, top, ROW_HEIGHT) {
     init {
         rebuild()
@@ -28,31 +28,45 @@ class PlanetDimensionList(
 
     fun rebuild() {
         clearEntries()
-        val currentPlanet = planet()
+        val currentSettings = settings()
+        val currentPrefabIndex = PlanetPrefabRegistry.all.indexOfFirst { it.id == currentSettings.sourcePrefabId }
+            .takeIf { it >= 0 } ?: 0
+        addEntry(Entry(EntryContent.Value(
+            label = Component.translatable("dynamicuniverse.planet_config.prefab"),
+            value = PlanetPrefabRegistry.all[currentPrefabIndex].name,
+            decrease = { applyPrefab(currentPrefabIndex - 1) },
+            increase = { applyPrefab(currentPrefabIndex + 1) },
+        )))
         addEntry(Entry(EntryContent.Value(
             label = Component.translatable("dynamicuniverse.planet_config.layers"),
-            value = currentPlanet.intermediateDimensionCount.toString(),
-            decrease = { updatePlanet { it.withIntermediateDimensionCount(it.intermediateDimensionCount - 1) } },
-            increase = { updatePlanet { it.withIntermediateDimensionCount(it.intermediateDimensionCount + 1) } },
+            value = currentSettings.intermediateDimensionCount.toString(),
+            decrease = { updateSettings { it.withIntermediateDimensionCount(it.intermediateDimensionCount - 1) } },
+            increase = { updateSettings { it.withIntermediateDimensionCount(it.intermediateDimensionCount + 1) } },
         )))
         addEntry(Entry(EntryContent.Value(
             label = Component.translatable("dynamicuniverse.planet_config.transition_factor"),
-            value = "1/${currentPlanet.dimensionTransitionFactor}",
-            decrease = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor - 1) } },
-            increase = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor + 1) } },
+            value = "1/${currentSettings.dimensionTransitionFactor}",
+            decrease = { updateSettings { it.withTransitionFactor(it.dimensionTransitionFactor - 1) } },
+            increase = { updateSettings { it.withTransitionFactor(it.dimensionTransitionFactor + 1) } },
         )))
         addEntry(Entry(EntryContent.Value(
             label = Component.translatable("dynamicuniverse.planet_config.core_size"),
-            value = currentPlanet.coreSize.toString(),
-            decrease = { updatePlanet { it.withCoreSize(it.coreSize - EditablePlanet.CORE_SIZE_STEP) } },
-            increase = { updatePlanet { it.withCoreSize(it.coreSize + EditablePlanet.CORE_SIZE_STEP) } },
+            value = currentSettings.coreSize.toString(),
+            decrease = { updateSettings { it.withCoreSize(it.coreSize - EditablePlanetSettings.CORE_SIZE_STEP) } },
+            increase = { updateSettings { it.withCoreSize(it.coreSize + EditablePlanetSettings.CORE_SIZE_STEP) } },
         )))
-        currentPlanet.dimensions.forEachIndexed { index, dimension ->
+        currentSettings.dimensions.forEachIndexed { index, dimension ->
             addEntry(Entry(EntryContent.Dimension(index, dimension)))
-            currentPlanet.incompatibleDimensionTransitions
+            currentSettings.incompatibleDimensionTransitions
                 .singleOrNull { it.innerLayerIndex == index }
-                ?.let { addEntry(Entry(EntryContent.Error(it, currentPlanet.dimensions[index], currentPlanet.dimensions[it.outerLayerIndex]))) }
+                ?.let { addEntry(Entry(EntryContent.Error(it, currentSettings.dimensions[index], currentSettings.dimensions[it.outerLayerIndex]))) }
         }
+    }
+
+    private fun applyPrefab(index: Int) {
+        val prefabs = PlanetPrefabRegistry.all
+        val normalizedIndex = Math.floorMod(index, prefabs.size)
+        updateSettings { it.applyPrefab(prefabs[normalizedIndex]) }
     }
 
     inner class Entry(
@@ -130,24 +144,7 @@ class PlanetDimensionList(
                     mouseX > contentLeft + VALUE_INCREASE_AREA_START -> content.increase()
                     else -> return true
                 }
-                is EntryContent.Dimension -> when {
-                    mouseX in (contentLeft + INNER_BOUNDARY_X).toDouble()..(contentLeft + OUTER_BOUNDARY_X - 4).toDouble() ->
-                        updatePlanet {
-                            it.withDimensionBoundary(
-                                content.dimensionIndex,
-                                DimensionEdge.INNER,
-                                content.dimension.boundaries.inner.next(),
-                            )
-                        }
-                    mouseX >= contentLeft + OUTER_BOUNDARY_X -> updatePlanet {
-                        it.withDimensionBoundary(
-                            content.dimensionIndex,
-                            DimensionEdge.OUTER,
-                            content.dimension.boundaries.outer.next(),
-                        )
-                    }
-                    else -> return true
-                }
+                is EntryContent.Dimension -> return true
                 is EntryContent.Error -> return true
             }
             rebuild()

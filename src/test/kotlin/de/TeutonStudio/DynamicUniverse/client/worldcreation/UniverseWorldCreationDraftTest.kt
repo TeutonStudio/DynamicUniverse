@@ -3,75 +3,73 @@ package de.TeutonStudio.DynamicUniverse.client.worldcreation
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaryType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 
 class UniverseWorldCreationDraftTest {
     @Test
-    fun `planet values stay within their supported ranges`() {
-        val planet = EditablePlanet.default()
+    fun `planet settings stay within their supported ranges`() {
+        val settings = EditablePlanetSettings.default()
 
-        assertEquals(4, planet.dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MIN_INTERMEDIATE_DIMENSIONS, planet.withIntermediateDimensionCount(-1).intermediateDimensionCount)
-        assertEquals(EditablePlanet.MAX_INTERMEDIATE_DIMENSIONS, planet.withIntermediateDimensionCount(99).intermediateDimensionCount)
-        assertEquals(EditablePlanet.MIN_TRANSITION_FACTOR, planet.withTransitionFactor(0).dimensionTransitionFactor)
-        assertEquals(5, planet.withTransitionFactor(5).dimensionTransitionFactor)
-        assertEquals(6, planet.withTransitionFactor(6).dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MAX_TRANSITION_FACTOR, planet.withTransitionFactor(128).dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MIN_CORE_SIZE, planet.withCoreSize(0).coreSize)
-        assertEquals(EditablePlanet.MAX_CORE_SIZE, planet.withCoreSize(999).coreSize)
+        assertEquals(4, settings.dimensionTransitionFactor)
+        assertEquals(EditablePlanetSettings.MIN_INTERMEDIATE_DIMENSIONS, settings.withIntermediateDimensionCount(-1).intermediateDimensionCount)
+        assertEquals(EditablePlanetSettings.MAX_INTERMEDIATE_DIMENSIONS, settings.withIntermediateDimensionCount(99).intermediateDimensionCount)
+        assertEquals(EditablePlanetSettings.MIN_TRANSITION_FACTOR, settings.withTransitionFactor(0).dimensionTransitionFactor)
+        assertEquals(5, settings.withTransitionFactor(5).dimensionTransitionFactor)
+        assertEquals(EditablePlanetSettings.MAX_TRANSITION_FACTOR, settings.withTransitionFactor(128).dimensionTransitionFactor)
+        assertEquals(EditablePlanetSettings.MIN_CORE_SIZE, settings.withCoreSize(0).coreSize)
+        assertEquals(EditablePlanetSettings.MAX_CORE_SIZE, settings.withCoreSize(999).coreSize)
     }
 
     @Test
-    fun `default draft contains the initial editable hierarchy`() {
+    fun `default draft contains planets with direct moon subobjects`() {
         val universe = EditableUniverse.default()
-        val draft = UniverseWorldCreationDraft(universe = universe)
-        val galaxy = draft.universe.galaxies.single()
+        val galaxy = universe.galaxies.single()
         val solarSystem = galaxy.entries.filterIsInstance<EditableSolarSystem>().single()
+        val planet = solarSystem.planets.single()
 
         assertEquals("Lokale Gruppe", galaxy.name)
         assertEquals("Sol", solarSystem.name)
         assertEquals("Sol", solarSystem.star.name)
-        assertEquals("Terra", solarSystem.planets.single().name)
+        assertEquals("Terra", planet.name)
+        assertEquals("Luna", planet.moons.single().name)
+        assertEquals(PlanetPrefabRegistry.MOON_ID, planet.moons.single().settings.sourcePrefabId)
         assertEquals("Orion-Wolke", galaxy.entries.filterIsInstance<EditableCloud>().single().name)
     }
 
     @Test
-    fun `each editable dimension records its inner and outer boundary`() {
-        val planet = EditablePlanet.default()
+    fun `dimensions use registered descriptor IDs and retain compatible boundaries`() {
+        val settings = EditablePlanetSettings.default()
 
-        assertEquals(5, planet.dimensions.size)
-        assertEquals(DimensionBoundaryType.BEDROCK, planet.dimensions.first().boundaries.outer)
-        assertEquals(DimensionBoundaryType.BEDROCK, planet.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.inner)
-        assertEquals(DimensionBoundaryType.AIR, planet.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.outer)
-        assertTrue(planet.incompatibleDimensionTransitions.isEmpty())
+        assertEquals(5, settings.dimensions.size)
+        assertEquals(PlanetDimensionRegistry.CORE_ID, settings.dimensions.first().descriptorId)
+        assertEquals(PlanetDimensionRegistry.SURFACE_ID, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.descriptorId)
+        assertEquals(DimensionBoundaryType.BEDROCK, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.inner)
+        assertEquals(DimensionBoundaryType.AIR, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.outer)
+        assertTrue(settings.incompatibleDimensionTransitions.isEmpty())
     }
 
     @Test
-    fun `editable stack reports the exact incompatible transition`() {
-        val planet = EditablePlanet.default().withDimensionBoundary(0, DimensionEdge.OUTER, DimensionBoundaryType.AIR)
+    fun `applying a prefab creates independent editable settings`() {
+        val earth = PlanetPrefabRegistry.require(PlanetPrefabRegistry.EARTH_ID)
+        val firstPlanetSettings = EditablePlanetSettings.default().applyPrefab(earth)
+        val secondPlanetSettings = EditablePlanetSettings.default().applyPrefab(earth)
+        val editedFirstPlanetSettings = firstPlanetSettings.withCoreSize(64)
 
-        val mismatch = planet.incompatibleDimensionTransitions.single()
-        assertEquals(0, mismatch.innerLayerIndex)
-        assertEquals(1, mismatch.outerLayerIndex)
-        assertEquals(DimensionBoundaryType.AIR, mismatch.innerBoundary)
-        assertEquals(DimensionBoundaryType.BEDROCK, mismatch.outerBoundary)
+        assertEquals(PlanetPrefabRegistry.EARTH_ID, firstPlanetSettings.sourcePrefabId)
+        assertEquals(32, secondPlanetSettings.coreSize)
+        assertEquals(64, editedFirstPlanetSettings.coreSize)
+        assertEquals(PlanetPrefabRegistry.EARTH_ID, editedFirstPlanetSettings.sourcePrefabId)
+        assertNotSame(firstPlanetSettings.dimensions, secondPlanetSettings.dimensions)
+        assertEquals(32, earth.coreSize)
     }
 
     @Test
-    fun `changing a surface edge preserves its bedrock to air boundary`() {
-        val surfaceIndex = EditablePlanet.default().dimensions.indexOfFirst { it.kind == EditablePlanetDimensionKind.SURFACE }
-        val planet = EditablePlanet.default().withDimensionBoundary(surfaceIndex, DimensionEdge.INNER, DimensionBoundaryType.AIR)
-        val surface = planet.dimensions[surfaceIndex]
+    fun `prefab application replaces the complete topology in its defined order`() {
+        val moonSettings = EditablePlanetSettings.default().applyPrefab(PlanetPrefabRegistry.require(PlanetPrefabRegistry.MOON_ID))
 
-        assertEquals(DimensionBoundaryType.AIR, surface.boundaries.inner)
-        assertEquals(DimensionBoundaryType.BEDROCK, surface.boundaries.outer)
-    }
-
-    @Test
-    fun `changing a non surface edge keeps both of its edges alike`() {
-        val planet = EditablePlanet.default().withDimensionBoundary(0, DimensionEdge.OUTER, DimensionBoundaryType.AIR)
-
-        assertEquals(DimensionBoundaryType.AIR, planet.dimensions.first().boundaries.inner)
-        assertEquals(DimensionBoundaryType.AIR, planet.dimensions.first().boundaries.outer)
+        assertEquals(PlanetPrefabRegistry.MOON_ID, moonSettings.sourcePrefabId)
+        assertEquals(3, moonSettings.dimensions.size)
+        assertEquals(listOf(PlanetDimensionRegistry.CORE_ID, PlanetDimensionRegistry.SURFACE_ID, PlanetDimensionRegistry.SKY_ID), moonSettings.dimensions.map { it.descriptorId })
     }
 }
