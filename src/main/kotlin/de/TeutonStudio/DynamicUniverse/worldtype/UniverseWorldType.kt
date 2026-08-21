@@ -21,8 +21,8 @@ data class UniverseWorldType(
     }
 
     fun connectionGraph(): DimensionConnectionGraph = DimensionConnectionGraph(
-        galaxies.flatMap { galaxy -> galaxy.groups.flatMap(CelestialGroup::planets) }
-            .flatMap { planet -> planet.connectionsTo(universeDimension) },
+        galaxies.flatMap { galaxy -> galaxy.groups }
+            .flatMap { group -> group.connectionsTo(universeDimension) },
     )
 }
 
@@ -53,12 +53,26 @@ data class CelestialGroup(
             CelestialGroupKind.CLOUD -> require(star == null) { "A cloud cannot own a star." }
         }
     }
+
+    internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> =
+        buildList {
+            star?.let { addAll(it.connectionsTo(universeDimension)) }
+            planets.forEach { addAll(it.connectionsTo(universeDimension)) }
+        }
 }
 
-data class Star(val id: String) {
+data class Star(
+    val id: String,
+    val stacks: List<PlanetDimensionStack>,
+) {
     init {
         requireNodeId(id, "Star")
+        require(stacks.isNotEmpty()) { "A star needs at least one vertical dimension stack." }
+        require(stacks.map(PlanetDimensionStack::id).distinct().size == stacks.size) { "Stack ids must be unique per star." }
     }
+
+    internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> =
+        stacks.flatMap { stack -> stack.connectionsTo(id, universeDimension) }
 }
 
 data class Planet(
@@ -74,21 +88,25 @@ data class Planet(
     }
 
     internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> = stacks.flatMap { stack ->
-        val radial = stack.layersInnerToOuter.windowed(2).map { (inner, outer) ->
-            DimensionConnection(
-                id = "$id/${stack.id}/${inner.id}-to-${outer.id}",
-                source = inner.dimension,
-                target = outer.dimension,
-                scale = requireNotNull(inner.toOuterScale),
-            )
-        }
-        radial + DimensionConnection(
-            id = "$id/${stack.id}/${stack.layersInnerToOuter.last().id}-to-universe",
-            source = stack.layersInnerToOuter.last().dimension,
-            target = universeDimension,
-            scale = stack.outerToUniverseScale,
+        stack.connectionsTo(id, universeDimension)
+    }
+}
+
+private fun PlanetDimensionStack.connectionsTo(ownerId: String, universeDimension: DimensionId): List<DimensionConnection> {
+    val radial = layersInnerToOuter.windowed(2).map { (inner, outer) ->
+        DimensionConnection(
+            id = "$ownerId/$id/${inner.id}-to-${outer.id}",
+            source = inner.dimension,
+            target = outer.dimension,
+            scale = requireNotNull(inner.toOuterScale),
         )
     }
+    return radial + DimensionConnection(
+        id = "$ownerId/$id/${layersInnerToOuter.last().id}-to-universe",
+        source = layersInnerToOuter.last().dimension,
+        target = universeDimension,
+        scale = outerToUniverseScale,
+    )
 }
 
 data class PlanetDimensionStack(

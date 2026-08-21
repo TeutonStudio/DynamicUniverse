@@ -22,7 +22,18 @@ class UniverseWorldTypeTest {
                         CelestialGroup(
                             id = "sol",
                             kind = CelestialGroupKind.SOLAR_SYSTEM,
-                            star = Star("sun"),
+                            star = Star(
+                                "sun",
+                                listOf(
+                                    PlanetDimensionStack(
+                                        "main",
+                                        listOf(
+                                            PlanetDimensionLayer("core", PlanetDimensionRole.PLANET_CORE, DimensionId("dynamicuniverse:sun/core"), DimensionScale(1)),
+                                            PlanetDimensionLayer("corona", PlanetDimensionRole.SKY, DimensionId("dynamicuniverse:sun/corona")),
+                                        ),
+                                    ),
+                                ),
+                            ),
                             planets = listOf(
                                 Planet(
                                     id = "earth",

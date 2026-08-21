@@ -29,7 +29,22 @@ class UniverseWorldCreationDraftTest {
         assertEquals("Lokale Gruppe", galaxy.name)
         assertEquals("Sol", solarSystem.name)
         assertEquals("Sol", solarSystem.star.name)
+        assertEquals(listOf("Sternkern", "Strahlungszone", "Korona"), solarSystem.star.dimensions.map(EditableDimension::displayName))
         assertEquals("Terra", solarSystem.planets.single().name)
+        assertEquals(listOf("Planetenkern", "Innere Dimension 1", "Innere Dimension 2", "Oberfläche"), solarSystem.planets.single().dimensions.map(EditableDimension::displayName))
         assertEquals("Orion-Wolke", galaxy.entries.filterIsInstance<EditableCloud>().single().name)
+    }
+
+    @Test
+    fun `draft freezes planet and star vertical stacks into the world type`() {
+        val worldType = UniverseWorldCreationDraft().toWorldType()
+        val system = worldType.galaxies.single().groups.first { it.kind.name == "SOLAR_SYSTEM" }
+        val star = requireNotNull(system.star)
+        val graph = worldType.connectionGraph()
+
+        assertEquals(3, star.stacks.single().layersInnerToOuter.size)
+        assertEquals(4, system.planets.single().stacks.single().layersInnerToOuter.size)
+        assertEquals(1, graph.routesFrom(star.stacks.single().layersInnerToOuter.first().dimension).size)
+        assertEquals(1, graph.routesFrom(system.planets.single().stacks.single().layersInnerToOuter.first().dimension).size)
     }
 }

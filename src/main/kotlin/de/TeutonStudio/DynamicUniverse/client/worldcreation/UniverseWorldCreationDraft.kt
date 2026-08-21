@@ -61,22 +61,27 @@ data class EditableCloud(
 
 data class EditableStar(
     val name: String,
-)
+    val dimensionStack: EditableDimensionStack = EditableDimensionStack.starDefault(),
+) {
+    val dimensions: List<EditableDimension> get() = dimensionStack.layers
+}
 
 data class EditablePlanet(
     val name: String,
-    val intermediateDimensionCount: Int,
+    val dimensionStack: EditableDimensionStack,
     val dimensionTransitionFactor: Int,
     val coreSize: Int,
 ) {
     init {
-        require(intermediateDimensionCount in MIN_INTERMEDIATE_DIMENSIONS..MAX_INTERMEDIATE_DIMENSIONS)
         require(dimensionTransitionFactor in MIN_TRANSITION_FACTOR..MAX_TRANSITION_FACTOR)
         require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE)
     }
 
+    val dimensions: List<EditableDimension> get() = dimensionStack.layers
+    val intermediateDimensionCount: Int get() = dimensionStack.layers.count { it.role == EditableDimensionRole.INNER }
+
     fun withIntermediateDimensionCount(count: Int) = copy(
-        intermediateDimensionCount = count.coerceIn(MIN_INTERMEDIATE_DIMENSIONS, MAX_INTERMEDIATE_DIMENSIONS),
+        dimensionStack = EditableDimensionStack.planetDefault(count.coerceIn(MIN_INTERMEDIATE_DIMENSIONS, MAX_INTERMEDIATE_DIMENSIONS)),
     )
 
     fun withTransitionFactor(factor: Int) = copy(
@@ -96,9 +101,38 @@ data class EditablePlanet(
 
         fun default() = EditablePlanet(
             name = "Terra",
-            intermediateDimensionCount = 2,
+            dimensionStack = EditableDimensionStack.planetDefault(2),
             dimensionTransitionFactor = 4,
             coreSize = 32,
         )
     }
 }
+
+/** A vertical, ordered stack. Every celestial body owns one; it is never inferred from a name. */
+data class EditableDimensionStack(val layers: List<EditableDimension>) {
+    init {
+        require(layers.size >= 2) { "A dimension stack needs at least a core and an outer layer." }
+        require(layers.first().role == EditableDimensionRole.CORE) { "The first layer must be the core." }
+        require(layers.last().role == EditableDimensionRole.SKY) { "The last layer must be the outer space-facing layer." }
+    }
+
+    companion object {
+        fun planetDefault(intermediateCount: Int) = EditableDimensionStack(
+            listOf(EditableDimension("core", "Planetenkern", EditableDimensionRole.CORE)) +
+                (1..intermediateCount).map { EditableDimension("inner_$it", "Innere Dimension $it", EditableDimensionRole.INNER) } +
+                EditableDimension("surface", "Oberfläche", EditableDimensionRole.SKY),
+        )
+
+        fun starDefault() = EditableDimensionStack(
+            listOf(
+                EditableDimension("core", "Sternkern", EditableDimensionRole.CORE),
+                EditableDimension("radiative_zone", "Strahlungszone", EditableDimensionRole.INNER),
+                EditableDimension("corona", "Korona", EditableDimensionRole.SKY),
+            ),
+        )
+    }
+}
+
+data class EditableDimension(val id: String, val displayName: String, val role: EditableDimensionRole)
+
+enum class EditableDimensionRole { CORE, INNER, SKY }
