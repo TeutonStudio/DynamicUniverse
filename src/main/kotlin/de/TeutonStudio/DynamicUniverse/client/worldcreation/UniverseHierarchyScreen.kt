@@ -23,7 +23,14 @@ class UniverseHierarchyScreen(
 
     override fun init() {
         tree = addRenderableWidget(
-            UniverseVerticalList(requireNotNull(minecraft), width, height, LIST_TOP, height - FOOTER_HEIGHT, treeItems()),
+            UniverseVerticalList(
+                requireNotNull(minecraft),
+                width,
+                height - LIST_TOP - FOOTER_HEIGHT,
+                LIST_TOP,
+                ROW_HEIGHT,
+                treeItems(),
+            ),
         )
         addRenderableWidget(
             Button.builder(CommonComponents.GUI_DONE) { onClose() }
@@ -157,6 +164,7 @@ class UniverseHierarchyScreen(
         const val SUBTITLE_Y = 38
         const val LIST_TOP = 56
         const val FOOTER_HEIGHT = 40
+        const val ROW_HEIGHT = 20
         const val GALAXY_CHILD_INDENT = 1
         const val SOLAR_SYSTEM_CHILD_INDENT = 2
         const val TEXT_COLOR = 0xFFFFFF

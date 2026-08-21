@@ -9,11 +9,11 @@ import net.minecraft.network.chat.Component
 class UniverseVerticalList(
     minecraft: Minecraft,
     width: Int,
-    height: Int,
+    listHeight: Int,
     top: Int,
-    bottom: Int,
+    rowHeight: Int,
     items: List<UniverseListItem>,
-) : ObjectSelectionList<UniverseVerticalList.Entry>(minecraft, width, height, top, bottom) {
+) : ObjectSelectionList<UniverseVerticalList.Entry>(minecraft, width, listHeight, top, rowHeight) {
     init {
         replaceItems(items)
     }
