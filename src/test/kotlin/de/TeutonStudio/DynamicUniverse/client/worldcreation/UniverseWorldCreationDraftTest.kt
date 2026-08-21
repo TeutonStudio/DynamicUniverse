@@ -41,8 +41,9 @@ class UniverseWorldCreationDraftTest {
     fun `dimensions use registered descriptor IDs and retain compatible boundaries`() {
         val settings = EditablePlanetSettings.default()
 
-        assertEquals(5, settings.dimensions.size)
+        assertEquals(6, settings.dimensions.size)
         assertEquals(PlanetDimensionRegistry.CORE_ID, settings.dimensions.first().descriptorId)
+        assertEquals(PlanetDimensionRegistry.NETHER_ID, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.NETHER }.descriptorId)
         assertEquals(PlanetDimensionRegistry.SURFACE_ID, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.descriptorId)
         assertEquals(DimensionBoundaryType.BEDROCK, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.inner)
         assertEquals(DimensionBoundaryType.AIR, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.outer)
@@ -69,7 +70,15 @@ class UniverseWorldCreationDraftTest {
         val moonSettings = EditablePlanetSettings.default().applyPrefab(PlanetPrefabRegistry.require(PlanetPrefabRegistry.MOON_ID))
 
         assertEquals(PlanetPrefabRegistry.MOON_ID, moonSettings.sourcePrefabId)
-        assertEquals(3, moonSettings.dimensions.size)
-        assertEquals(listOf(PlanetDimensionRegistry.CORE_ID, PlanetDimensionRegistry.SURFACE_ID, PlanetDimensionRegistry.SKY_ID), moonSettings.dimensions.map { it.descriptorId })
+        assertEquals(4, moonSettings.dimensions.size)
+        assertEquals(
+            listOf(
+                PlanetDimensionRegistry.CORE_ID,
+                PlanetDimensionRegistry.NETHER_ID,
+                PlanetDimensionRegistry.SURFACE_ID,
+                PlanetDimensionRegistry.SKY_ID,
+            ),
+            moonSettings.dimensions.map { it.descriptorId },
+        )
     }
 }

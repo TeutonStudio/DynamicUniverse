@@ -66,6 +66,7 @@ data class EditablePlanetSettings(
         require(dimensionTransitionFactor in MIN_TRANSITION_FACTOR..MAX_TRANSITION_FACTOR)
         require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE)
         require(dimensions.count { it.kind == EditablePlanetDimensionKind.CORE } == 1) { "A body needs one core dimension." }
+        require(dimensions.count { it.kind == EditablePlanetDimensionKind.NETHER } == 1) { "A body needs one Nether dimension." }
         require(dimensions.count { it.kind == EditablePlanetDimensionKind.SURFACE } == 1) { "A body needs one surface dimension." }
         require(dimensions.count { it.kind == EditablePlanetDimensionKind.SKY } == 1) { "A body needs one sky dimension." }
         require(dimensions.first().kind == EditablePlanetDimensionKind.CORE) { "The core must be the innermost dimension." }
@@ -102,13 +103,14 @@ data class EditablePlanetSettings(
         fun defaultDimensions(intermediateDimensionCount: Int): List<EditablePlanetDimension> = buildList {
             add(EditablePlanetDimension("core", PlanetDimensionRegistry.CORE_ID))
             repeat(intermediateDimensionCount) { index -> add(EditablePlanetDimension("layer_${index + 1}", PlanetDimensionRegistry.INTERMEDIATE_ID)) }
+            add(EditablePlanetDimension("nether", PlanetDimensionRegistry.NETHER_ID))
             add(EditablePlanetDimension("surface", PlanetDimensionRegistry.SURFACE_ID))
             add(EditablePlanetDimension("sky", PlanetDimensionRegistry.SKY_ID))
         }
     }
 }
 
-enum class EditablePlanetDimensionKind { CORE, INTERMEDIATE, SURFACE, SKY }
+enum class EditablePlanetDimensionKind { CORE, INTERMEDIATE, NETHER, SURFACE, SKY }
 
 /** An ordered stack entry references a registered descriptor rather than storing manual edge switches. */
 data class EditablePlanetDimension(val id: String, val descriptorId: String) {
@@ -135,12 +137,14 @@ data class PlanetDimensionDescriptor(
 object PlanetDimensionRegistry {
     const val CORE_ID = "dynamicuniverse:planet_core"
     const val INTERMEDIATE_ID = "dynamicuniverse:underground"
+    const val NETHER_ID = "minecraft:the_nether"
     const val SURFACE_ID = "minecraft:overworld"
     const val SKY_ID = "dynamicuniverse:sky"
 
     private val descriptors = listOf(
         PlanetDimensionDescriptor(CORE_ID, "Planetenkern", EditablePlanetDimensionKind.CORE, DimensionBoundaries.BEDROCK_TO_BEDROCK),
         PlanetDimensionDescriptor(INTERMEDIATE_ID, "Untergrund", EditablePlanetDimensionKind.INTERMEDIATE, DimensionBoundaries.BEDROCK_TO_BEDROCK),
+        PlanetDimensionDescriptor(NETHER_ID, "Nether", EditablePlanetDimensionKind.NETHER, DimensionBoundaries.BEDROCK_TO_BEDROCK),
         PlanetDimensionDescriptor(SURFACE_ID, "Oberfläche", EditablePlanetDimensionKind.SURFACE, DimensionBoundaries.BEDROCK_TO_AIR),
         PlanetDimensionDescriptor(SKY_ID, "Himmel", EditablePlanetDimensionKind.SKY, DimensionBoundaries.AIR_TO_AIR),
     ).associateBy(PlanetDimensionDescriptor::id)
