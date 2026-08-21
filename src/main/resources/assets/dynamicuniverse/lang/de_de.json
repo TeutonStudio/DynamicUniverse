@@ -20,7 +20,10 @@
   "dynamicuniverse.star_config.info": "Stern-Eigenschaften werden vorbereitet; die Planeteneinstellungen sind bereits editierbar.",
   "dynamicuniverse.planet_config.title": "Planet konfigurieren",
   "dynamicuniverse.planet_config.subtitle": "Einstellungen für %s",
-  "dynamicuniverse.planet_config.layers": "Dimensionen zwischen All und Planetenkern",
+  "dynamicuniverse.planet_config.layers": "Zwischen-Dimensionen",
   "dynamicuniverse.planet_config.transition_factor": "Dimensionswechsel-Faktor (1/n)",
-  "dynamicuniverse.planet_config.core_size": "Planetenkern-Größe"
+  "dynamicuniverse.planet_config.core_size": "Planetenkern-Größe",
+  "dynamicuniverse.planet_config.inner_boundary": "Innen: %s",
+  "dynamicuniverse.planet_config.outer_boundary": "Außen: %s",
+  "dynamicuniverse.planet_config.incompatible_transition": "Inkompatibler Übergang %s → %s: %s / %s"
 }

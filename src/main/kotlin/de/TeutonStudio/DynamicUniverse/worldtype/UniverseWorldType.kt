@@ -2,8 +2,10 @@ package de.TeutonStudio.DynamicUniverse.worldtype
 
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnection
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionGraph
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaries
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
+import de.TeutonStudio.DynamicUniverse.dimension.PlanetDimensionStackValidator
 
 /** The configurable Universe world type. It has no client or portal-mod dependency. */
 data class UniverseWorldType(
@@ -108,6 +110,9 @@ data class PlanetDimensionStack(
             requireNotNull(layer.toOuterScale) { "Every inner boundary needs an explicit dimension scale." }
         }
         require(layersInnerToOuter.last().toOuterScale == null) { "The sky layer's next boundary is the stack scale." }
+        require(PlanetDimensionStackValidator.incompatibleTransitions(layersInnerToOuter.map(PlanetDimensionLayer::boundaries)).isEmpty()) {
+            "Adjacent dimension boundaries must match (AIR-to-AIR or BEDROCK-to-BEDROCK)."
+        }
     }
 }
 
@@ -118,9 +123,14 @@ data class PlanetDimensionLayer(
     val role: PlanetDimensionRole,
     val dimension: DimensionId,
     val toOuterScale: DimensionScale? = null,
+    val boundaries: DimensionBoundaries = DimensionBoundaries.AIR_TO_AIR,
 ) {
     init {
         requireNodeId(id, "Dimension layer")
+        val isSurfaceBoundary = boundaries.inner != boundaries.outer
+        require((role == PlanetDimensionRole.SURFACE) == isSurfaceBoundary) {
+            "Only a surface may have BEDROCK on one edge and AIR on the other."
+        }
     }
 }
 
