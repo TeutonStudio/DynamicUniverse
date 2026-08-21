@@ -21,7 +21,7 @@ The default Earth template includes a five-layer main stack: core, deep Nether, 
 
 Only an operator command or an equivalent server-side administrative API may spawn a planet. The action is excluded from survival because it changes the global gravity field and can perturb existing orbits. Spawn is transactional at the domain level: validate the body, all stacks, dimension ids, and cosmological placement before DynamicDimensions receives any creation request.
 
-DynamicDimensions loads existing world data on restart but deliberately does not track which dimensions belong to an application. GalactiCraft therefore persists the complete planet manifest and reloads every registered stack during server startup. Deletion is intentionally not exposed by the first command surface because dimension deletion permanently removes world data.
+DynamicDimensions loads existing world data on restart but deliberately does not track which dimensions belong to an application. GalactiCraft therefore persists the complete planet manifest, including body positions and velocities, and reloads every registered stack during server startup. Deletion is intentionally not exposed by the first command surface because dimension deletion permanently removes world data.
 
 ## Dynamic cosmos and collision model
 

@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher
 import de.TeutonStudio.GalactiCraft.planet.PlanetSpawnPolicy
 import de.TeutonStudio.GalactiCraft.planet.StandardPlanetTemplates
 import de.TeutonStudio.GalactiCraft.runtime.DynamicDimensionStackSpawner
+import de.TeutonStudio.GalactiCraft.runtime.CosmosRuntime
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
@@ -32,7 +33,9 @@ object GalactiCraftCommands {
 
     private fun spawnEarth(source: CommandSourceStack): Int {
         check(!PlanetSpawnPolicy.ADMINISTRATIVE_ONLY.permitsSurvivalCreation())
-        val dimensions = DynamicDimensionStackSpawner().loadPlanet(source.server, StandardPlanetTemplates.earth)
+        val template = StandardPlanetTemplates.earth
+        val dimensions = DynamicDimensionStackSpawner().loadPlanet(source.server, template)
+        CosmosRuntime.register(source.server, template.body)
         source.sendSuccess(
             { Component.literal("Earth stack loaded: ${dimensions.joinToString()}") },
             true,

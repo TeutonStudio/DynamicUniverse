@@ -14,7 +14,11 @@ import net.minecraft.world.level.levelgen.LevelStem
  * create: reloads preserve regions created during a previous server session.
  */
 class DynamicDimensionStackSpawner {
-    fun loadPlanet(server: MinecraftServer, planet: PlanetTemplate): List<ResourceLocation> {
+    fun loadPlanet(
+        server: MinecraftServer,
+        planet: PlanetTemplate,
+        recordManifest: Boolean = true,
+    ): List<ResourceLocation> {
         val registry = DynamicDimensionRegistry.from(server)
         val stems = server.registryAccess().registryOrThrow(Registries.LEVEL_STEM)
         val prepared = planet.stacks.flatMap { stack ->
@@ -40,7 +44,7 @@ class DynamicDimensionStackSpawner {
             }
             preparedLayer.id
         }
-        PlanetManifestData.get(server).remember(planet.id, loaded.map(ResourceLocation::toString))
+        if (recordManifest) PlanetManifestData.get(server).remember(planet, loaded.map(ResourceLocation::toString))
         return loaded
     }
 
