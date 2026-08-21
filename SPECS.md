@@ -12,6 +12,14 @@ The server owns every celestial body's mass, radius, position, velocity, and res
 
 Planets are created only by administrative server actions. Survival gameplay cannot create celestial bodies, because an added mass changes all current gravitational accelerations and orbital trajectories.
 
+## Universe world type foundation
+
+`DYNAMIC_UNIVERSE` is a server-side world-type configuration. It represents a vertical hierarchy of galaxies, celestial groups, optional stars, planets, and radial dimension stacks. A celestial group is either a solar system with exactly one star or a cloud with no star.
+
+Each planet owns one or more core-to-surface stacks. The innermost planet-core layer and the outermost sky layer are mandatory. Every radial boundary, including the final sky-to-Universe boundary, has an explicit positive rational coordinate factor. The technical connection graph exposes both directed routes for every boundary, while actual portal rendering and entity transfer remain optional adapters.
+
+Planet-core size is a separate, positive configuration value. It does not silently alter a celestial body's collision radius.
+
 ## Horizontal connection topology
 
 Each world layer has a finite square period `L`. X and Z wrap independently, forming a torus. The canonical coordinate is:
