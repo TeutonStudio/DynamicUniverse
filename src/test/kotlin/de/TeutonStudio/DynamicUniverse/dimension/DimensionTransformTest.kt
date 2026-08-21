@@ -36,6 +36,7 @@ class DimensionTransformTest {
             source = DimensionId("dynamicuniverse:test/surface"),
             target = DimensionId("dynamicuniverse:universe"),
             scale = DimensionScale.ONE,
+            kind = DimensionConnectionKind.UNIVERSE_TRANSITION,
         )
         val frame = PlanetFrame(
             id = "dynamicuniverse:test:frame",

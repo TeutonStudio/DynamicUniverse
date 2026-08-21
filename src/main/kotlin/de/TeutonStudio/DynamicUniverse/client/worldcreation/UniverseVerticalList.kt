@@ -45,7 +45,7 @@ class UniverseVerticalList(
                 item.label,
                 left + ROW_TEXT_INSET + item.indentation * INDENT_WIDTH,
                 top + 5,
-                TEXT_COLOR,
+                item.color,
                 false,
             )
         }
@@ -71,5 +71,8 @@ class UniverseVerticalList(
 data class UniverseListItem(
     val label: Component,
     val indentation: Int = 0,
+    val color: Int = TEXT_COLOR,
     val onSelect: () -> Unit,
 )
+
+private const val TEXT_COLOR = 0xFFFFFF

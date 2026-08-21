@@ -3,6 +3,7 @@ package de.TeutonStudio.DynamicUniverse.worldtype
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionPosition
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -66,5 +67,7 @@ class UniverseWorldTypeTest {
         assertEquals(DimensionPosition(-40, 80, 56), scaled)
         assertEquals(source, graph.transition(coreToMantle.target, "${coreToMantle.id}:reverse", scaled)?.position)
         assertEquals(universe, graph.routesFrom(surface).single { it.target == universe }.target)
+        assertEquals(DimensionConnectionKind.UNIVERSE_TRANSITION, graph.routesFrom(surface).single { it.target == universe }.kind)
+        assertEquals(VerticalLoop.BOTH_DIRECTIONS, worldType.isolatedUniverses.single { it.id == "end" }.verticalLoop)
     }
 }

@@ -41,6 +41,9 @@ data class DimensionPosition(val x: Long, val y: Long, val z: Long)
 /** The material exposed on one side of a vertical boundary. */
 enum class BoundarySurface { BEDROCK, AIR }
 
+/** The final sky-to-Universe route is a seamless flight/vehicle transition, not a block layer. */
+enum class DimensionConnectionKind { RADIAL_BOUNDARY, UNIVERSE_TRANSITION }
+
 /**
  * A coordinate change is deliberately separate from physical scale. A factor of eight
  * makes travel cover eight times as much of the outer layer, but does not shrink players,
@@ -137,6 +140,7 @@ data class DimensionConnection(
     val scale: DimensionScale,
     val physicalScale: Double = 1.0,
     val boundarySurface: BoundarySurface = BoundarySurface.AIR,
+    val kind: DimensionConnectionKind = DimensionConnectionKind.RADIAL_BOUNDARY,
     val transform: DimensionTransform = DimensionTransform(scale, physicalScale),
 ) {
     init {
@@ -162,6 +166,7 @@ data class DimensionConnection(
         scale = scale.inverse(),
         physicalScale = 1.0 / physicalScale,
         boundarySurface = boundarySurface,
+        kind = kind,
         transform = transform.inverse(),
     )
 }

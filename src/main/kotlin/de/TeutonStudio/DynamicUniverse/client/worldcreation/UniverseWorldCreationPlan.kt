@@ -34,7 +34,7 @@ fun UniverseWorldCreationDraft.toWorldType(id: String = "dynamicuniverse:created
                             Planet(
                                 id = "planet_${galaxyIndex}_${entryIndex}_$planetIndex",
                                 planetCoreSize = planet.coreSize.toDouble(),
-                                stacks = listOf(planet.dimensionStack.toStack("planet/$galaxyIndex/$entryIndex/$planetIndex", planet.name, planet.dimensionTransitionFactor)),
+                                stacks = listOf(planet.dimensionStack.toStack("planet/$galaxyIndex/$entryIndex/$planetIndex", planet.name, planet.radialScale)),
                             )
                         },
                     )
@@ -52,7 +52,8 @@ private fun EditableDimensionStack.toStack(path: String, name: String, factor: I
                 id = layer.id,
                 role = when (layer.role) {
                     EditableDimensionRole.CORE -> PlanetDimensionRole.PLANET_CORE
-                    EditableDimensionRole.INNER -> PlanetDimensionRole.INNER
+                    EditableDimensionRole.SHELL -> PlanetDimensionRole.INNER
+                    EditableDimensionRole.SURFACE -> PlanetDimensionRole.SURFACE
                     EditableDimensionRole.SKY -> PlanetDimensionRole.SKY
                 },
                 dimension = DimensionId("dynamicuniverse:created/$path/${layer.id}"),

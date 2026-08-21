@@ -26,11 +26,13 @@
   "dynamicuniverse.planet_config.subtitle": "Settings for %s",
   "dynamicuniverse.planet_config.layers": "Dimensions between space and planet core",
   "dynamicuniverse.planet_config.transition_factor": "Outward travel factor",
+  "dynamicuniverse.planet_config.body_kind": "Body class and outward scale",
   "dynamicuniverse.planet_config.core_size": "Planet core size",
   "dynamicuniverse.planet_config.add_dimension": "Add dimension",
   "dynamicuniverse.planet_config.move_up": "Move inward",
   "dynamicuniverse.planet_config.move_down": "Move outward",
   "dynamicuniverse.planet_config.remove": "Remove",
+  "dynamicuniverse.planet_config.insert_balance": "Insert balancing dimension",
   "dynamicuniverse.planet_config.valid": "Geometry valid: only bedrock↔bedrock and air↔air",
   "dynamicuniverse.planet_config.invalid": "Geometry invalid: %s incompatible boundary or boundaries"
 }

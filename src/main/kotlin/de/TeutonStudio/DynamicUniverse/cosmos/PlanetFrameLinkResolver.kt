@@ -2,6 +2,7 @@ package de.TeutonStudio.DynamicUniverse.cosmos
 
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnection
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionTransform
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionKind
 import de.TeutonStudio.DynamicUniverse.dimension.SpatialPosition
 import de.TeutonStudio.DynamicUniverse.dimension.SpatialVelocity
 
@@ -10,15 +11,20 @@ import de.TeutonStudio.DynamicUniverse.dimension.SpatialVelocity
  * Universe-side anchor and inertial velocity are updated as its celestial body moves.
  */
 object PlanetFrameLinkResolver {
-    fun bindOuterLink(connection: DimensionConnection, frame: PlanetFrame): DimensionConnection = connection.copy(
-        transform = DimensionTransform(
-            coordinateScale = connection.scale,
-            physicalScale = connection.physicalScale,
-            sourceAnchor = connection.transform.sourceAnchor,
-            targetAnchor = frame.anchor,
-            rotation = frame.rotation,
-        ),
-    )
+    fun bindOuterLink(connection: DimensionConnection, frame: PlanetFrame): DimensionConnection {
+        require(connection.kind == DimensionConnectionKind.UNIVERSE_TRANSITION) {
+            "Only a sky-to-Universe transition may bind to a moving planet frame."
+        }
+        return connection.copy(
+            transform = DimensionTransform(
+                coordinateScale = connection.scale,
+                physicalScale = connection.physicalScale,
+                sourceAnchor = connection.transform.sourceAnchor,
+                targetAnchor = frame.anchor,
+                rotation = frame.rotation,
+            ),
+        )
+    }
 
     fun toUniverse(connection: DimensionConnection, frame: PlanetFrame, position: SpatialPosition, velocity: SpatialVelocity): PlanetFrameTraversal =
         PlanetFrameTraversal(

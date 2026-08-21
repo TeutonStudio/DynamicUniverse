@@ -4,67 +4,102 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
+import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
 
 class UniverseWorldCreationDraftTest {
     @Test
-    fun `planet values stay within their supported ranges`() {
+    fun `default Terra stack is a valid core to sky sequence`() {
         val planet = EditablePlanet.default()
 
-        assertEquals(4, planet.dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MIN_INTERMEDIATE_DIMENSIONS, planet.withIntermediateDimensionCount(-1).intermediateDimensionCount)
-        assertEquals(EditablePlanet.MAX_INTERMEDIATE_DIMENSIONS, planet.withIntermediateDimensionCount(99).intermediateDimensionCount)
-        assertEquals(EditablePlanet.MIN_TRANSITION_FACTOR, planet.withTransitionFactor(0).dimensionTransitionFactor)
-        assertEquals(5, planet.withTransitionFactor(5).dimensionTransitionFactor)
-        assertEquals(6, planet.withTransitionFactor(6).dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MAX_TRANSITION_FACTOR, planet.withTransitionFactor(128).dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MIN_CORE_SIZE, planet.withCoreSize(0).coreSize)
-        assertEquals(EditablePlanet.MAX_CORE_SIZE, planet.withCoreSize(999).coreSize)
-    }
-
-    @Test
-    fun `default draft contains the initial editable hierarchy`() {
-        val universe = EditableUniverse.default()
-        val draft = UniverseWorldCreationDraft(universe = universe)
-        val galaxy = draft.universe.galaxies.single()
-        val solarSystem = galaxy.entries.filterIsInstance<EditableSolarSystem>().single()
-
-        assertEquals("Lokale Gruppe", galaxy.name)
-        assertEquals("Sol", solarSystem.name)
-        assertEquals("Sol", solarSystem.star.name)
-        assertEquals(listOf("Sternkern", "Strahlungszone", "Korona"), solarSystem.star.dimensions.map(EditableDimension::displayName))
-        assertEquals("Terra", solarSystem.planets.single().name)
-        assertEquals(listOf("Planetenkern", "Innere Dimension 1", "Innere Dimension 2", "Oberfläche"), solarSystem.planets.single().dimensions.map(EditableDimension::displayName))
-        assertEquals("Orion-Wolke", galaxy.entries.filterIsInstance<EditableCloud>().single().name)
-    }
-
-    @Test
-    fun `draft freezes planet and star vertical stacks into the world type`() {
-        val worldType = UniverseWorldCreationDraft().toWorldType()
-        val system = worldType.galaxies.single().groups.first { it.kind.name == "SOLAR_SYSTEM" }
-        val star = requireNotNull(system.star)
-        val graph = worldType.connectionGraph()
-
-        assertEquals(3, star.stacks.single().layersInnerToOuter.size)
-        assertEquals(4, system.planets.single().stacks.single().layersInnerToOuter.size)
-        assertEquals(1, graph.routesFrom(star.stacks.single().layersInnerToOuter.first().dimension).size)
-        assertEquals(1, graph.routesFrom(system.planets.single().stacks.single().layersInnerToOuter.first().dimension).size)
-    }
-
-    @Test
-    fun `moving a selected intermediate dimension can expose an invalid bedrock to air boundary`() {
-        val planet = EditablePlanet.default()
-
+        assertEquals(CelestialBodyKind.PLANET, planet.bodyKind)
+        assertEquals(8, planet.radialScale)
+        assertEquals(
+            listOf("Planetenkern", "Tiefer Nether", "Nether", "Oberwelt", "Himmel"),
+            planet.dimensions.map(EditableDimension::displayName),
+        )
         assertTrue(planet.dimensionValidation.isValid)
-        assertFalse(planet.moveDimension(1, 1).dimensionValidation.isValid)
     }
 
     @Test
-    fun `adding and removing only changes intermediate dimensions`() {
+    fun `body kind selects every outward radial scale`() {
         val planet = EditablePlanet.default()
-        val added = planet.addDimension()
 
-        assertEquals(planet.intermediateDimensionCount + 1, added.intermediateDimensionCount)
-        assertTrue(added.dimensionValidation.isValid)
-        assertEquals(planet.dimensionStack.layers, added.removeDimension(added.dimensionStack.layers.lastIndex - 1).dimensionStack.layers)
+        assertEquals(4, planet.withBodyKind(CelestialBodyKind.DWARF_PLANET).radialScale)
+        assertEquals(2, planet.withBodyKind(CelestialBodyKind.MOON).radialScale)
+    }
+
+    @Test
+    fun `first effective edit creates a local profile and retains its provenance`() {
+        val edited = EditablePlanet.default().withCoreSize(64)
+
+        assertTrue(edited.profile.isLocal)
+        assertEquals("Erde Custom", edited.profile.localProfileName)
+        assertEquals("Terra · Erde Custom", edited.profileLabel)
+        assertEquals("dynamicuniverse:earth", edited.profile.templateId)
+    }
+
+    @Test
+    fun `moving a shell above the surface exposes forbidden air to bedrock order`() {
+        val invalid = EditablePlanet.default().moveDimension(1, 2)
+
+        assertFalse(invalid.dimensionValidation.isValid)
+        assertTrue(invalid.dimensionValidation.mismatches.any(EditableBoundaryMismatch::isForbiddenAirToBedrock))
+    }
+
+    @Test
+    fun `balancing row offers only a descriptor matching both adjacent boundaries`() {
+        val invalid = EditablePlanet.default().copy(
+            dimensionStack = EditableDimensionStack(listOf(
+                EditableDimension("core", PlanetDimensionCatalog.CORE_ID),
+                EditableDimension("nether", PlanetDimensionCatalog.NETHER_ID),
+                EditableDimension("sky", PlanetDimensionCatalog.SKY_ID),
+            )),
+        )
+        val mismatch = invalid.dimensionValidation.mismatches.single()
+
+        val candidates = invalid.dimensionStack.balancingCandidates(mismatch.lowerIndex)
+
+        assertEquals(listOf(PlanetDimensionCatalog.OVERWORLD_ID), candidates.map(RegisteredDimensionDescriptor::id))
+        assertTrue(invalid.insertBalancingDimension(mismatch.lowerIndex, PlanetDimensionCatalog.OVERWORLD_ID).dimensionValidation.isValid)
+    }
+
+    @Test
+    fun `discovered unresolved dimensions are selectable but block world creation`() {
+        val aether = PlanetDimensionCatalog.discovered("aether:the_aether", "Aether")
+        val catalog = PlanetDimensionCatalog(PlanetDimensionCatalog.standard.selectable() + aether)
+        PlanetDimensionCatalogs.install(catalog)
+        try {
+            val selected = EditablePlanet.default().replaceDimension(EditablePlanet.default().dimensions.lastIndex, aether.id)
+
+            assertTrue(aether.isSelectable)
+            assertTrue(aether.blocksWorldCreation)
+            assertEquals(DimensionCatalogStatus.DISCOVERED, catalog.require(aether.id).catalogStatus)
+            assertFalse(selected.dimensionValidation.isValid)
+            assertEquals(listOf(aether.id), selected.dimensionValidation.unresolvedDimensions.map(EditableDimension::descriptorId))
+        } finally {
+            PlanetDimensionCatalogs.resetForTests()
+        }
+    }
+
+    @Test
+    fun `the End is isolated and cannot become a planet layer`() {
+        val end = PlanetDimensionCatalog.standard.require(PlanetDimensionCatalog.END_ID)
+
+        assertFalse(end.isSelectable)
+        assertEquals(RegisteredDimensionKind.ISOLATED, end.kind)
+        assertEquals(PlanetDimensionCatalog.standard, PlanetDimensionCatalog.standard)
+    }
+
+    @Test
+    fun `air to bedrock templates are rejected before they can enter a stack`() {
+        assertFailsWith<IllegalArgumentException> {
+            RegisteredDimensionDescriptor(
+                "test:inverted",
+                "Inverted",
+                DimensionCatalogStatus.DISCOVERED,
+                DimensionBoundaryInspection(BoundarySurface.AIR, BoundarySurface.BEDROCK, BoundaryEvidence.UNRESOLVED),
+            )
+        }
     }
 }

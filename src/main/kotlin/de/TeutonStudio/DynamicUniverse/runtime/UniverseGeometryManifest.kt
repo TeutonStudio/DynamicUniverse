@@ -10,17 +10,21 @@ import de.TeutonStudio.DynamicUniverse.dimension.SpatialVelocity
 import de.TeutonStudio.DynamicUniverse.topology.HorizontalPeriod
 import de.TeutonStudio.DynamicUniverse.topology.ToroidalSeamSpec
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionStack
+import de.TeutonStudio.DynamicUniverse.worldtype.IsolatedUniverseDefinition
 import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.math.PI
 
 /** Persist this logical graph, not incidental Immersive Portals entity UUIDs. */
 data class UniverseGeometryManifest(
     val version: Int = CURRENT_VERSION,
     val universe: UniverseFrame,
     val layers: List<LayerGeometry>,
+    val airBuffers: List<AirBoundaryBuffer>,
     val links: List<DimensionConnection>,
     val planetFrames: List<PlanetFrame>,
+    val isolatedUniverses: List<IsolatedUniverseDefinition>,
 ) {
     init {
         require(layers.map(LayerGeometry::dimension).distinct().size == layers.size) { "A level may only bind one layer." }
@@ -34,19 +38,39 @@ data class LayerGeometry(
     val dimension: DimensionId,
     val period: HorizontalPeriod,
     val seam: ToroidalSeamSpec = ToroidalSeamSpec.centered(period),
-)
+) {
+    /** Render-only pseudo radius; cosmic collision radius remains a separate body property. */
+    val projectionRadiusBlocks: Double get() = period.blocks.toDouble() / (2.0 * PI)
+}
+
+/** Every AIR-to-AIR stack boundary gets a symmetric ten-block render/transfer buffer. */
+data class AirBoundaryBuffer(
+    val lowerDimension: DimensionId,
+    val upperDimension: DimensionId,
+    val lowerBlocks: Int = 5,
+    val upperBlocks: Int = 5,
+) {
+    init { require(lowerBlocks + upperBlocks == 10) { "An alpha0 air buffer is exactly ten blocks." } }
+}
 
 /** Turns the validated world type into the immutable runtime geometry contract. */
 object UniverseGeometryCompiler {
     fun compile(worldType: UniverseWorldType): UniverseGeometryManifest {
         val layers = mutableListOf<LayerGeometry>()
+        val airBuffers = mutableListOf<AirBoundaryBuffer>()
         val frames = mutableListOf<PlanetFrame>()
         worldType.galaxies.forEach { galaxy ->
             galaxy.groups.forEach { group ->
-                group.star?.stacks?.forEach { stack -> layers += stack.layers(defaultCorePeriod = 16L) }
+                group.star?.stacks?.forEach { stack ->
+                    layers += stack.layers(defaultCorePeriod = 16L)
+                    airBuffers += stack.airBuffers()
+                }
                 group.planets.forEach { planet ->
                     val basePeriod = corePeriod(planet.planetCoreSize)
-                    planet.stacks.forEach { stack -> layers += stack.layers(basePeriod) }
+                    planet.stacks.forEach { stack ->
+                        layers += stack.layers(basePeriod)
+                        airBuffers += stack.airBuffers()
+                    }
                     frames += PlanetFrame(
                         id = "${planet.id}:frame",
                         universeFrame = UniverseFrame(worldType.universeDimension.value),
@@ -59,8 +83,10 @@ object UniverseGeometryCompiler {
         return UniverseGeometryManifest(
             universe = UniverseFrame(worldType.universeDimension.value),
             layers = layers,
+            airBuffers = airBuffers,
             links = worldType.connectionGraph().allRoutes().filterNot { it.id.endsWith(":reverse") },
             planetFrames = frames,
+            isolatedUniverses = worldType.isolatedUniverses,
         )
     }
 
@@ -71,6 +97,10 @@ object UniverseGeometryCompiler {
             LayerGeometry(layer.dimension, period)
         }
     }
+
+    private fun PlanetDimensionStack.airBuffers(): List<AirBoundaryBuffer> = layersInnerToOuter.windowed(2)
+        .filter { (lower, upper) -> lower.outerBoundarySurface == de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface.AIR && upper.innerBoundarySurface == de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface.AIR }
+        .map { (lower, upper) -> AirBoundaryBuffer(lower.dimension, upper.dimension) }
 
     private fun corePeriod(coreSize: Double): Long {
         val rounded = BigDecimal.valueOf(coreSize).setScale(0, RoundingMode.CEILING).longValueExact()

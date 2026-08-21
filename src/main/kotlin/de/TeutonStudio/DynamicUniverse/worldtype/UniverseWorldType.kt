@@ -5,17 +5,20 @@ import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionGraph
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
 import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionKind
 
 /** The configurable Universe world type. It has no client or portal-mod dependency. */
 data class UniverseWorldType(
     val id: String,
     val universeDimension: DimensionId,
     val galaxies: List<Galaxy>,
+    val isolatedUniverses: List<IsolatedUniverseDefinition> = listOf(IsolatedUniverseDefinition.end()),
 ) {
     init {
         require(id.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) { "Universe id must be namespaced." }
         require(galaxies.isNotEmpty()) { "A Universe needs at least one galaxy." }
         require(galaxies.map(Galaxy::id).distinct().size == galaxies.size) { "Galaxy ids must be unique." }
+        require(isolatedUniverses.map(IsolatedUniverseDefinition::id).distinct().size == isolatedUniverses.size) { "Isolated universe ids must be unique." }
 
         val planets = galaxies.flatMap { galaxy -> galaxy.groups.flatMap(CelestialGroup::planets) }
         require(planets.map(Planet::id).distinct().size == planets.size) { "Planet ids must be unique per Universe." }
@@ -26,6 +29,23 @@ data class UniverseWorldType(
             .flatMap { group -> group.connectionsTo(universeDimension) },
     )
 }
+
+/** A dimension outside every planet stack. The End loops vertically inside its own universe. */
+data class IsolatedUniverseDefinition(
+    val id: String,
+    val dimension: DimensionId,
+    val verticalLoop: VerticalLoop = VerticalLoop.BOTH_DIRECTIONS,
+) {
+    init {
+        require(id.matches(Regex("[a-z0-9_.-]+"))) { "Invalid isolated universe id." }
+    }
+
+    companion object {
+        fun end() = IsolatedUniverseDefinition("end", DimensionId("minecraft:the_end"))
+    }
+}
+
+enum class VerticalLoop { NONE, BOTH_DIRECTIONS }
 
 data class Galaxy(
     val id: String,
@@ -109,6 +129,7 @@ private fun PlanetDimensionStack.connectionsTo(ownerId: String, universeDimensio
         target = universeDimension,
         scale = outerToUniverseScale,
         boundarySurface = BoundarySurface.AIR,
+        kind = DimensionConnectionKind.UNIVERSE_TRANSITION,
     )
 }
 
@@ -128,7 +149,7 @@ data class PlanetDimensionStack(
         layersInnerToOuter.dropLast(1).forEach { layer ->
             requireNotNull(layer.toOuterScale) { "Every inner boundary needs an explicit dimension scale." }
         }
-        require(layersInnerToOuter.last().toOuterScale == null) { "The sky layer's next boundary is the stack scale." }
+        require(layersInnerToOuter.last().toOuterScale == null) { "The sky layer's next boundary is the Universe transition." }
         layersInnerToOuter.windowed(2).forEach { (inner, outer) ->
             require(inner.outerBoundarySurface == outer.innerBoundarySurface) {
                 "Adjacent dimensions must connect bedrock-to-bedrock or air-to-air."
@@ -150,9 +171,9 @@ data class PlanetDimensionLayer(
     init {
         requireNodeId(id, "Dimension layer")
         if (role == PlanetDimensionRole.PLANET_CORE) require(innerBoundarySurface == null)
-        if (role == PlanetDimensionRole.SKY) require(outerBoundarySurface == null)
+        if (role == PlanetDimensionRole.SKY) require(outerBoundarySurface == BoundarySurface.AIR)
         if (role != PlanetDimensionRole.PLANET_CORE) requireNotNull(innerBoundarySurface)
-        if (role != PlanetDimensionRole.SKY) requireNotNull(outerBoundarySurface)
+        requireNotNull(outerBoundarySurface)
     }
 }
 
@@ -163,7 +184,7 @@ private fun defaultInnerSurface(role: PlanetDimensionRole): BoundarySurface? = w
 }
 
 private fun defaultOuterSurface(role: PlanetDimensionRole): BoundarySurface? = when (role) {
-    PlanetDimensionRole.SKY -> null
+    PlanetDimensionRole.SKY -> BoundarySurface.AIR
     PlanetDimensionRole.PLANET_CORE -> BoundarySurface.BEDROCK
     else -> BoundarySurface.AIR
 }

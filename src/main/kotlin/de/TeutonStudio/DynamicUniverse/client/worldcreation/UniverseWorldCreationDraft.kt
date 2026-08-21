@@ -2,12 +2,7 @@ package de.TeutonStudio.DynamicUniverse.client.worldcreation
 
 import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
 
-/**
- * Client-side draft used while the Create World screen is open.
- *
- * It is deliberately not written to a world yet. A later world-creation bridge can
- * consume this data after the server-side generator and persistence format exist.
- */
+/** Client-side draft used while the Create World screen is open. */
 data class UniverseWorldCreationDraft(
     val universe: EditableUniverse = EditableUniverse.default(),
 ) {
@@ -33,203 +28,202 @@ data class PlanetDraftValidationError(
     val validation: EditableStackValidation,
 )
 
-data class EditableUniverse(
-    val galaxies: List<EditableGalaxy>,
-) {
-    init {
-        require(galaxies.isNotEmpty()) { "Universe needs at least one galaxy" }
-    }
+data class EditableUniverse(val galaxies: List<EditableGalaxy>) {
+    init { require(galaxies.isNotEmpty()) { "Universe needs at least one galaxy" } }
 
     companion object {
-        fun default() = EditableUniverse(
-            galaxies = listOf(
-                EditableGalaxy(
-                    name = "Lokale Gruppe",
-                    entries = listOf(
-                        EditableSolarSystem(
-                            name = "Sol",
-                            star = EditableStar("Sol"),
-                            planets = listOf(EditablePlanet.default()),
-                        ),
-                        EditableCloud("Orion-Wolke"),
-                    ),
-                ),
-            ),
-        )
+        fun default() = EditableUniverse(listOf(
+            EditableGalaxy("Lokale Gruppe", listOf(
+                EditableSolarSystem("Sol", EditableStar("Sol"), listOf(EditablePlanet.default())),
+                EditableCloud("Orion-Wolke"),
+            )),
+        ))
     }
 }
 
-data class EditableGalaxy(
-    val name: String,
-    val entries: List<EditableGalaxyEntry>,
-)
-
-sealed interface EditableGalaxyEntry {
-    val name: String
+data class EditableGalaxy(val name: String, val entries: List<EditableGalaxyEntry>)
+sealed interface EditableGalaxyEntry { val name: String }
+data class EditableSolarSystem(override val name: String, val star: EditableStar, val planets: List<EditablePlanet>) : EditableGalaxyEntry {
+    init { require(planets.isNotEmpty()) { "A solar system needs at least one planet" } }
 }
-
-data class EditableSolarSystem(
-    override val name: String,
-    val star: EditableStar,
-    val planets: List<EditablePlanet>,
-) : EditableGalaxyEntry {
-    init {
-        require(planets.isNotEmpty()) { "A solar system needs at least one planet" }
-    }
-}
-
-data class EditableCloud(
-    override val name: String,
-) : EditableGalaxyEntry
-
-data class EditableStar(
-    val name: String,
-    val dimensionStack: EditableDimensionStack = EditableDimensionStack.starDefault(),
-) {
+data class EditableCloud(override val name: String) : EditableGalaxyEntry
+data class EditableStar(val name: String, val dimensionStack: EditableDimensionStack = EditableDimensionStack.starDefault()) {
     val dimensions: List<EditableDimension> get() = dimensionStack.layers
 }
 
+enum class CelestialBodyKind(val radialScale: Int) {
+    PLANET(8),
+    DWARF_PLANET(4),
+    MOON(2),
+}
+
+data class PlanetProfileProvenance(
+    val templateId: String,
+    val templateName: String,
+    val isLocal: Boolean = false,
+    val localProfileName: String? = null,
+) {
+    val visibleName: String get() = localProfileName ?: templateName
+}
+
+/** A body owns one local stack. Templates are copied on first edit, never live-inherited. */
 data class EditablePlanet(
     val name: String,
     val dimensionStack: EditableDimensionStack,
-    val dimensionTransitionFactor: Int,
+    val bodyKind: CelestialBodyKind,
     val coreSize: Int,
+    val profile: PlanetProfileProvenance,
 ) {
-    init {
-        require(dimensionTransitionFactor in MIN_TRANSITION_FACTOR..MAX_TRANSITION_FACTOR)
-        require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE)
-    }
+    init { require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE) }
 
     val dimensions: List<EditableDimension> get() = dimensionStack.layers
-    val intermediateDimensionCount: Int get() = dimensionStack.layers.count { it.role == EditableDimensionRole.INNER }
     val dimensionValidation: EditableStackValidation get() = dimensionStack.validation()
+    val radialScale: Int get() = bodyKind.radialScale
+    val profileLabel: String get() = "$name · ${profile.visibleName}"
 
-    fun withIntermediateDimensionCount(count: Int) = copy(
-        dimensionStack = EditableDimensionStack.planetDefault(count.coerceIn(MIN_INTERMEDIATE_DIMENSIONS, MAX_INTERMEDIATE_DIMENSIONS)),
+    fun withBodyKind(kind: CelestialBodyKind) = if (kind == bodyKind) this else copy(bodyKind = kind).asLocalProfile()
+    fun withCoreSize(size: Int): EditablePlanet {
+        val normalized = size.coerceIn(MIN_CORE_SIZE, MAX_CORE_SIZE)
+        return if (normalized == coreSize) this else copy(coreSize = normalized).asLocalProfile()
+    }
+    fun addDimension() = withStack(dimensionStack.addDimension())
+    fun moveDimension(index: Int, delta: Int) = withStack(dimensionStack.move(index, delta))
+    fun removeDimension(index: Int) = withStack(dimensionStack.remove(index))
+    fun replaceDimension(index: Int, descriptorId: String) = withStack(dimensionStack.replace(index, descriptorId))
+    fun insertBalancingDimension(lowerIndex: Int, descriptorId: String) =
+        withStack(dimensionStack.insert(lowerIndex + 1, descriptorId))
+
+    private fun withStack(stack: EditableDimensionStack): EditablePlanet =
+        if (stack == dimensionStack) this else copy(dimensionStack = stack).asLocalProfile()
+
+    private fun asLocalProfile(): EditablePlanet = if (profile.isLocal) this else copy(
+        profile = profile.copy(isLocal = true, localProfileName = "${profile.templateName} Custom"),
     )
-
-    fun withTransitionFactor(factor: Int) = copy(
-        dimensionTransitionFactor = factor.coerceIn(MIN_TRANSITION_FACTOR, MAX_TRANSITION_FACTOR),
-    )
-
-    fun withCoreSize(size: Int) = copy(coreSize = size.coerceIn(MIN_CORE_SIZE, MAX_CORE_SIZE))
-
-    fun addDimension() = copy(dimensionStack = dimensionStack.addIntermediate())
-
-    fun moveDimension(index: Int, delta: Int) = copy(dimensionStack = dimensionStack.moveIntermediate(index, delta))
-
-    fun removeDimension(index: Int) = copy(dimensionStack = dimensionStack.removeIntermediate(index))
 
     companion object {
-        const val MIN_INTERMEDIATE_DIMENSIONS = 0
-        const val MAX_INTERMEDIATE_DIMENSIONS = 8
-        const val MIN_TRANSITION_FACTOR = 4
-        const val MAX_TRANSITION_FACTOR = 64
         const val MIN_CORE_SIZE = 8
-        const val MAX_CORE_SIZE = 128
+        const val MAX_CORE_SIZE = 2048
         const val CORE_SIZE_STEP = 8
 
         fun default() = EditablePlanet(
             name = "Terra",
-            dimensionStack = EditableDimensionStack.planetDefault(2),
-            dimensionTransitionFactor = 4,
+            dimensionStack = EditableDimensionStack.planetDefault(),
+            bodyKind = CelestialBodyKind.PLANET,
             coreSize = 32,
+            profile = PlanetProfileProvenance("dynamicuniverse:earth", "Erde"),
         )
     }
 }
 
-/** A vertical, ordered stack. Every celestial body owns one; it is never inferred from a name. */
+/** An ordered radial stack. It uses template descriptors, never hand-written boundary toggles. */
 data class EditableDimensionStack(val layers: List<EditableDimension>) {
     init {
-        require(layers.size >= 2) { "A dimension stack needs at least a core and an outer layer." }
+        require(layers.size >= 3) { "A planet stack needs at least a core, surface, and sky layer." }
         require(layers.first().role == EditableDimensionRole.CORE) { "The first layer must be the core." }
-        require(layers.last().role == EditableDimensionRole.SKY) { "The last layer must be the outer space-facing layer." }
+        require(layers.last().role == EditableDimensionRole.SKY) { "The final layer must be sky-facing." }
     }
 
     companion object {
-        fun planetDefault(intermediateCount: Int) = EditableDimensionStack(
-            listOf(EditableDimension.core()) +
-                (1..intermediateCount).map { index ->
-                    if (index == 1) EditableDimension("inner_$index", "Innere Dimension $index", EditableDimensionRole.INNER, BoundarySurface.BEDROCK, BoundarySurface.AIR)
-                    else EditableDimension("inner_$index", "Innere Dimension $index", EditableDimensionRole.INNER, BoundarySurface.AIR, BoundarySurface.AIR)
-                } +
-                EditableDimension.sky(),
-        )
+        fun planetDefault() = EditableDimensionStack(listOf(
+            EditableDimension("core", PlanetDimensionCatalog.CORE_ID),
+            EditableDimension("deep_nether", PlanetDimensionCatalog.DEEP_NETHER_ID),
+            EditableDimension("nether", PlanetDimensionCatalog.NETHER_ID),
+            EditableDimension("surface", PlanetDimensionCatalog.OVERWORLD_ID),
+            EditableDimension("sky", PlanetDimensionCatalog.SKY_ID),
+        ))
 
-        fun starDefault() = EditableDimensionStack(
-            listOf(
-                EditableDimension.core("Sternkern"),
-                EditableDimension("radiative_zone", "Strahlungszone", EditableDimensionRole.INNER, BoundarySurface.BEDROCK, BoundarySurface.AIR),
-                EditableDimension.sky("Korona"),
-            ),
-        )
+        fun starDefault() = EditableDimensionStack(listOf(
+            EditableDimension("core", PlanetDimensionCatalog.CORE_ID),
+            EditableDimension("radiative_zone", PlanetDimensionCatalog.OVERWORLD_ID),
+            EditableDimension("corona", PlanetDimensionCatalog.SKY_ID),
+        ))
     }
 
-    fun validation(): EditableStackValidation {
+    fun validation(catalog: PlanetDimensionCatalog = PlanetDimensionCatalogs.current): EditableStackValidation {
         val mismatches = layers.windowed(2).mapIndexedNotNull { index, (inner, outer) ->
-            if (inner.outerBoundarySurface == outer.innerBoundarySurface) null
-            else EditableBoundaryMismatch(index, inner, outer)
+            if (inner.outerBoundarySurface == outer.innerBoundarySurface) null else EditableBoundaryMismatch(index, inner, outer)
         }
-        return EditableStackValidation(mismatches)
+        val unresolved = layers.filter { catalog.require(it.descriptorId).blocksWorldCreation }
+        val surfaceCount = layers.count { it.role == EditableDimensionRole.SURFACE }
+        val shapeErrors = buildList {
+            if (surfaceCount != 1) add("A planet stack needs exactly one BEDROCK-to-AIR surface.")
+            if (layers.drop(1).dropLast(1).any { it.role == EditableDimensionRole.CORE }) add("The core may only be the lowest layer.")
+        }
+        return EditableStackValidation(mismatches, unresolved, shapeErrors)
     }
 
-    fun addIntermediate(): EditableDimensionStack {
-        val intermediateCount = layers.count { it.role == EditableDimensionRole.INNER }
-        if (intermediateCount >= EditablePlanet.MAX_INTERMEDIATE_DIMENSIONS) return this
-        val next = generateSequence(1) { it + 1 }
-            .first { candidate -> layers.none { it.id == "inner_$candidate" } }
-        val dimension = EditableDimension(
-            id = "inner_$next",
-            displayName = "Innere Dimension $next",
-            role = EditableDimensionRole.INNER,
-            innerBoundarySurface = requireNotNull(layers[layers.lastIndex - 1].outerBoundarySurface),
-            outerBoundarySurface = BoundarySurface.AIR,
-        )
-        return copy(layers = layers.dropLast(1) + dimension + layers.last())
+    fun balancingCandidates(lowerIndex: Int, catalog: PlanetDimensionCatalog = PlanetDimensionCatalogs.current): List<RegisteredDimensionDescriptor> {
+        if (lowerIndex !in 0 until layers.lastIndex) return emptyList()
+        return catalog.insertionCandidates(layers[lowerIndex], layers[lowerIndex + 1])
     }
 
-    fun moveIntermediate(index: Int, delta: Int): EditableDimensionStack {
-        if (index !in layers.indices || layers[index].role != EditableDimensionRole.INNER) return this
+    fun addDimension(catalog: PlanetDimensionCatalog = PlanetDimensionCatalogs.current): EditableDimensionStack {
+        val lowerIndex = layers.lastIndex - 1
+        val descriptor = balancingCandidates(lowerIndex, catalog).firstOrNull() ?: return this
+        return insert(layers.lastIndex, descriptor.id)
+    }
+
+    fun insert(index: Int, descriptorId: String): EditableDimensionStack {
+        if (index !in 1..layers.lastIndex) return this
+        val descriptor = PlanetDimensionCatalogs.current.require(descriptorId)
+        if (!descriptor.isSelectable || descriptor.kind == RegisteredDimensionKind.CORE) return this
+        val nextId = uniqueLayerId(descriptorId.substringAfter(':').replace('/', '_'))
+        return copy(layers = layers.toMutableList().also { it.add(index, EditableDimension(nextId, descriptorId)) })
+    }
+
+    fun replace(index: Int, descriptorId: String): EditableDimensionStack {
+        if (index !in layers.indices) return this
+        val descriptor = PlanetDimensionCatalogs.current.require(descriptorId)
+        if (!descriptor.isSelectable) return this
+        val candidates = PlanetDimensionCatalogs.current.selectableFor(index, layers.size)
+        if (descriptor !in candidates) return this
+        return copy(layers = layers.mapIndexed { candidate, layer -> if (candidate == index) layer.copy(descriptorId = descriptorId) else layer })
+    }
+
+    fun move(index: Int, delta: Int): EditableDimensionStack {
+        if (index !in 1 until layers.lastIndex) return this
         val target = (index + delta).coerceIn(1, layers.lastIndex - 1)
         if (target == index) return this
         val mutable = layers.toMutableList()
-        val dimension = mutable.removeAt(index)
-        mutable.add(target, dimension)
+        mutable.add(target, mutable.removeAt(index))
         return copy(layers = mutable)
     }
 
-    fun removeIntermediate(index: Int): EditableDimensionStack {
-        if (index !in layers.indices || layers[index].role != EditableDimensionRole.INNER) return this
+    fun remove(index: Int): EditableDimensionStack {
+        if (index !in 1 until layers.lastIndex) return this
         return copy(layers = layers.filterIndexed { candidate, _ -> candidate != index })
     }
+
+    private fun uniqueLayerId(prefix: String): String = generateSequence(1) { it + 1 }
+        .map { "${prefix}_$it" }
+        .first { candidate -> layers.none { it.id == candidate } }
 }
 
-data class EditableStackValidation(val mismatches: List<EditableBoundaryMismatch>) {
-    val isValid: Boolean get() = mismatches.isEmpty()
-}
-
-data class EditableBoundaryMismatch(
-    val lowerIndex: Int,
-    val lower: EditableDimension,
-    val upper: EditableDimension,
-)
-
-data class EditableDimension(
-    val id: String,
-    val displayName: String,
-    val role: EditableDimensionRole,
-    val innerBoundarySurface: BoundarySurface?,
-    val outerBoundarySurface: BoundarySurface?,
+data class EditableStackValidation(
+    val mismatches: List<EditableBoundaryMismatch>,
+    val unresolvedDimensions: List<EditableDimension>,
+    val shapeErrors: List<String>,
 ) {
-    init {
-        if (role == EditableDimensionRole.CORE) require(innerBoundarySurface == null)
-        if (role == EditableDimensionRole.SKY) require(outerBoundarySurface == null)
-    }
-
-    companion object {
-        fun core(displayName: String = "Planetenkern") = EditableDimension("core", displayName, EditableDimensionRole.CORE, null, BoundarySurface.BEDROCK)
-        fun sky(displayName: String = "Oberfläche") = EditableDimension("surface", displayName, EditableDimensionRole.SKY, BoundarySurface.AIR, null)
-    }
+    val isValid: Boolean get() = mismatches.isEmpty() && unresolvedDimensions.isEmpty() && shapeErrors.isEmpty()
 }
 
-enum class EditableDimensionRole { CORE, INNER, SKY }
+data class EditableBoundaryMismatch(val lowerIndex: Int, val lower: EditableDimension, val upper: EditableDimension) {
+    val isForbiddenAirToBedrock: Boolean get() = lower.outerBoundarySurface == BoundarySurface.AIR && upper.innerBoundarySurface == BoundarySurface.BEDROCK
+}
+
+data class EditableDimension(val id: String, val descriptorId: String) {
+    private val descriptor: RegisteredDimensionDescriptor get() = PlanetDimensionCatalogs.current.require(descriptorId)
+    val displayName: String get() = descriptor.displayName
+    val role: EditableDimensionRole get() = when (descriptor.kind) {
+        RegisteredDimensionKind.CORE -> EditableDimensionRole.CORE
+        RegisteredDimensionKind.SHELL -> EditableDimensionRole.SHELL
+        RegisteredDimensionKind.SURFACE -> EditableDimensionRole.SURFACE
+        RegisteredDimensionKind.SKY -> EditableDimensionRole.SKY
+        RegisteredDimensionKind.ISOLATED -> error("Isolated dimensions cannot enter a planet stack.")
+    }
+    val innerBoundarySurface: BoundarySurface? get() = descriptor.inspection.lower
+    val outerBoundarySurface: BoundarySurface? get() = descriptor.inspection.upper
+    val status: DimensionCatalogStatus get() = descriptor.catalogStatus
+}
+
+enum class EditableDimensionRole { CORE, SHELL, SURFACE, SKY }
