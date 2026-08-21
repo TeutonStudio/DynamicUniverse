@@ -35,6 +35,11 @@ class DynamicCosmos(private val gravitationalConstant: Double = 6.67430e-11) {
 
     fun register(body: CelestialBody) {
         require(body.id !in bodies) { "Celestial body already exists: ${body.id}" }
+        bodies.values.forEach { existing ->
+            require((body.position - existing.position).lengthSquared() > (body.radius + existing.radius) * (body.radius + existing.radius)) {
+                "New body ${body.id} overlaps ${existing.id}; choose a non-colliding administrative spawn position."
+            }
+        }
         bodies[body.id] = body
     }
 
@@ -75,8 +80,12 @@ object ElasticCollisionResolver {
     fun resolve(first: CelestialBody, second: CelestialBody): Pair<CelestialBody, CelestialBody>? {
         val separation = second.position - first.position
         if (separation.lengthSquared() > (first.radius + second.radius) * (first.radius + second.radius)) return null
-        val normal = separation.normalized()
         val relativeVelocity = second.velocity - first.velocity
+        val normal = when {
+            separation.lengthSquared() > 0.0 -> separation.normalized()
+            relativeVelocity.lengthSquared() > 0.0 -> relativeVelocity.normalized()
+            else -> Vector3(1.0, 0.0, 0.0)
+        }
         val closingSpeed = relativeVelocity.dot(normal)
         if (closingSpeed >= 0.0) return null
 
