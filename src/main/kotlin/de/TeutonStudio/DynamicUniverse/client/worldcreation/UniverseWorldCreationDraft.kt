@@ -11,20 +11,57 @@ data class UniverseWorldCreationDraft(
 )
 
 data class EditableUniverse(
-    val galaxyName: String,
-    val solarSystemName: String,
-    val starName: String,
-    val planet: EditablePlanet,
+    val galaxies: List<EditableGalaxy>,
 ) {
+    init {
+        require(galaxies.isNotEmpty()) { "Universe needs at least one galaxy" }
+    }
+
     companion object {
         fun default() = EditableUniverse(
-            galaxyName = "Lokale Gruppe",
-            solarSystemName = "Sol",
-            starName = "Sol",
-            planet = EditablePlanet.default(),
+            galaxies = listOf(
+                EditableGalaxy(
+                    name = "Lokale Gruppe",
+                    entries = listOf(
+                        EditableSolarSystem(
+                            name = "Sol",
+                            star = EditableStar("Sol"),
+                            planets = listOf(EditablePlanet.default()),
+                        ),
+                        EditableCloud("Orion-Wolke"),
+                    ),
+                ),
+            ),
         )
     }
 }
+
+data class EditableGalaxy(
+    val name: String,
+    val entries: List<EditableGalaxyEntry>,
+)
+
+sealed interface EditableGalaxyEntry {
+    val name: String
+}
+
+data class EditableSolarSystem(
+    override val name: String,
+    val star: EditableStar,
+    val planets: List<EditablePlanet>,
+) : EditableGalaxyEntry {
+    init {
+        require(planets.isNotEmpty()) { "A solar system needs at least one planet" }
+    }
+}
+
+data class EditableCloud(
+    override val name: String,
+) : EditableGalaxyEntry
+
+data class EditableStar(
+    val name: String,
+)
 
 data class EditablePlanet(
     val name: String,
@@ -35,9 +72,6 @@ data class EditablePlanet(
     init {
         require(intermediateDimensionCount in MIN_INTERMEDIATE_DIMENSIONS..MAX_INTERMEDIATE_DIMENSIONS)
         require(dimensionTransitionFactor in MIN_TRANSITION_FACTOR..MAX_TRANSITION_FACTOR)
-        require(dimensionTransitionFactor.countOneBits() == 1) {
-            "dimensionTransitionFactor must be a power of two"
-        }
         require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE)
     }
 
@@ -46,8 +80,7 @@ data class EditablePlanet(
     )
 
     fun withTransitionFactor(factor: Int) = copy(
-        dimensionTransitionFactor = factor.coerceIn(MIN_TRANSITION_FACTOR, MAX_TRANSITION_FACTOR)
-            .takeHighestOneBit(),
+        dimensionTransitionFactor = factor.coerceIn(MIN_TRANSITION_FACTOR, MAX_TRANSITION_FACTOR),
     )
 
     fun withCoreSize(size: Int) = copy(coreSize = size.coerceIn(MIN_CORE_SIZE, MAX_CORE_SIZE))
@@ -55,7 +88,7 @@ data class EditablePlanet(
     companion object {
         const val MIN_INTERMEDIATE_DIMENSIONS = 0
         const val MAX_INTERMEDIATE_DIMENSIONS = 8
-        const val MIN_TRANSITION_FACTOR = 1
+        const val MIN_TRANSITION_FACTOR = 4
         const val MAX_TRANSITION_FACTOR = 64
         const val MIN_CORE_SIZE = 8
         const val MAX_CORE_SIZE = 128
@@ -64,7 +97,7 @@ data class EditablePlanet(
         fun default() = EditablePlanet(
             name = "Terra",
             intermediateDimensionCount = 2,
-            dimensionTransitionFactor = 8,
+            dimensionTransitionFactor = 4,
             coreSize = 32,
         )
     }

@@ -11,6 +11,9 @@ import net.minecraft.network.chat.Component
 class PlanetConfigurationScreen(
     private val createWorldScreen: CreateWorldScreen,
     private val parent: Screen,
+    private val galaxyIndex: Int,
+    private val entryIndex: Int,
+    private val planetIndex: Int,
 ) : Screen(Component.translatable("dynamicuniverse.planet_config.title")) {
     override fun init() {
         val left = width / 2 - 150
@@ -23,10 +26,10 @@ class PlanetConfigurationScreen(
         )
         addValueControls(
             y = 108,
-            label = "1:${planet().dimensionTransitionFactor}",
+            label = "1/${planet().dimensionTransitionFactor}",
             title = Component.translatable("dynamicuniverse.planet_config.transition_factor"),
-            decrease = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor / 2) } },
-            increase = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor * 2) } },
+            decrease = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor - 1) } },
+            increase = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor + 1) } },
         )
         addValueControls(
             y = 152,
@@ -68,21 +71,42 @@ class PlanetConfigurationScreen(
         val left = width / 2 - 150
         addRenderableWidget(Button.builder(Component.literal("-")) {
             decrease()
-            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent))
+            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent, galaxyIndex, entryIndex, planetIndex))
         }.bounds(left, y, 40, 20).build())
         addRenderableWidget(Button.builder(Component.literal(label)) { }.bounds(left + 44, y, 212, 20).build()).active = false
         addRenderableWidget(Button.builder(Component.literal("+")) {
             increase()
-            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent))
+            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent, galaxyIndex, entryIndex, planetIndex))
         }.bounds(left + 260, y, 40, 20).build())
         addRenderableWidget(Button.builder(title) { }.bounds(left, y - 22, 300, 20).build()).active = false
     }
 
-    private fun planet(): EditablePlanet = UniverseWorldCreationDraftStore.get(createWorldScreen).universe.planet
+    private fun planet(): EditablePlanet = solarSystem().planets[planetIndex]
+
+    private fun solarSystem(): EditableSolarSystem =
+        UniverseWorldCreationDraftStore.get(createWorldScreen).universe.galaxies[galaxyIndex].entries[entryIndex] as EditableSolarSystem
 
     private fun updatePlanet(transform: (EditablePlanet) -> EditablePlanet) {
         UniverseWorldCreationDraftStore.update(createWorldScreen) { draft ->
-            draft.copy(universe = draft.universe.copy(planet = transform(draft.universe.planet)))
+            val galaxy = draft.universe.galaxies[galaxyIndex]
+            val solarSystem = galaxy.entries[entryIndex] as EditableSolarSystem
+            val updatedSolarSystem = solarSystem.copy(
+                planets = solarSystem.planets.mapIndexed { index, planet ->
+                    if (index == planetIndex) transform(planet) else planet
+                },
+            )
+            val updatedGalaxy = galaxy.copy(
+                entries = galaxy.entries.mapIndexed { index, entry ->
+                    if (index == entryIndex) updatedSolarSystem else entry
+                },
+            )
+            draft.copy(
+                universe = draft.universe.copy(
+                    galaxies = draft.universe.galaxies.mapIndexed { index, candidate ->
+                        if (index == galaxyIndex) updatedGalaxy else candidate
+                    },
+                ),
+            )
         }
     }
 
