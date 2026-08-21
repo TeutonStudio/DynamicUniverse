@@ -67,6 +67,8 @@ dependencies {
 
     // Compatibility targets, deliberately optional and never referenced from common code.
     runtimeOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"
+    // Required by the selected Immersive Portals runtime artifact.
+    runtimeOnly "maven.modrinth:9s6osm5g:${cloth_config_modrinth_version_id}"
     compileOnly "dev.ryanhcode.sable:sable-common-${minecraft_version}:${sable_version}"
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
