@@ -17,13 +17,14 @@ class UniverseWorldCreationDraftTest {
     }
 
     @Test
-    fun `draft changes world type without losing universe choices`() {
+    fun `default draft contains the initial editable hierarchy`() {
         val universe = EditableUniverse.default().copy(planet = EditablePlanet.default().withCoreSize(48))
         val draft = UniverseWorldCreationDraft(universe = universe)
 
-        val selected = draft.withSelectedType(DynamicWorldType.UNIVERSE)
-
-        assertEquals(DynamicWorldType.UNIVERSE, selected.selectedType)
-        assertEquals(48, selected.universe.planet.coreSize)
+        assertEquals("Lokale Gruppe", draft.universe.galaxyName)
+        assertEquals("Sol", draft.universe.solarSystemName)
+        assertEquals("Sol", draft.universe.starName)
+        assertEquals("Terra", draft.universe.planet.name)
+        assertEquals(48, draft.universe.planet.coreSize)
     }
 }

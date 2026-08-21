@@ -7,26 +7,8 @@ package de.TeutonStudio.DynamicUniverse.client.worldcreation
  * consume this data after the server-side generator and persistence format exist.
  */
 data class UniverseWorldCreationDraft(
-    val selectedType: DynamicWorldType = DynamicWorldType.VANILLA,
     val universe: EditableUniverse = EditableUniverse.default(),
-) {
-    fun withSelectedType(type: DynamicWorldType) = copy(selectedType = type)
-}
-
-enum class DynamicWorldType(val translationKey: String, val descriptionKey: String) {
-    VANILLA(
-        "dynamicuniverse.world_type.vanilla",
-        "dynamicuniverse.world_type.vanilla.description",
-    ),
-    UNIVERSE(
-        "dynamicuniverse.world_type.universe",
-        "dynamicuniverse.world_type.universe.description",
-    ),
-    DIMENSION_STACK(
-        "dynamicuniverse.world_type.dimension_stack",
-        "dynamicuniverse.world_type.dimension_stack.description",
-    ),
-}
+)
 
 data class EditableUniverse(
     val galaxyName: String,

@@ -22,11 +22,9 @@ Planet-core size is a separate, positive configuration value. It does not silent
 
 ## World-creation UI
 
-The client adds a `Universe …` entry point to Minecraft's regular Create World screen. It opens a separate DynamicUniverse selection layer and never replaces or modifies the vanilla tabs, their settings, or their final Create action.
+`dynamicuniverse:universe` is a data-driven Minecraft `WorldPreset`. It is added to the vanilla `#minecraft:normal` preset tag, so it appears in the existing World Type selector alongside Standard, Flat, and Single Biome. The preset begins with the three safe vanilla dimension generators; it does not add a placeholder playable dimension or alter a pre-existing save.
 
-The selection layer exposes Vanilla/other world types, `Universe`, and `Dimension Stack`. The customization control remains available for Vanilla/other types and Universe. For Dimension Stack it is visibly disabled, and an adjacent explanation screen documents that unconstrained edits could create contradictory transitions and damaged world data.
-
-Universe customization is a vertical hierarchy: galaxy → solar system → star and planet. The star has its own settings entry. The planet settings currently edit a validated creation draft: number of dimensions between space and planet core (`0..8`), a power-of-two coordinate transition factor (`1..64`), and core size (`8..128`, in blocks). The draft is held only for the lifetime of its Create World screen. Persisting it into a created save and applying it to generators/portals is deliberately deferred to the server-side creation bridge, so this UI cannot alter an existing world or silently change vanilla generation.
+NeoForge's client-only `RegisterPresetEditorsEvent` binds the existing vanilla `Customize` button to the Universe editor when, and only when, the Universe preset is selected. Universe customization is a vertical hierarchy: galaxy → solar system → star and planet. The star has its own settings entry. The planet settings currently edit a validated creation draft: number of dimensions between space and planet core (`0..8`), a power-of-two coordinate transition factor (`1..64`), and core size (`8..128`, in blocks). The draft is held only for the lifetime of its Create World screen. Persisting it into a created save and applying it to generators/portals is deliberately deferred to the server-side creation bridge, so this UI cannot alter an existing world or silently change vanilla generation.
 
 ## Horizontal connection topology
 
