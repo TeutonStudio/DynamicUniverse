@@ -31,11 +31,7 @@ fun UniverseWorldCreationDraft.toWorldType(id: String = "dynamicuniverse:created
                         kind = CelestialGroupKind.SOLAR_SYSTEM,
                         star = Star("star_${galaxyIndex}_$entryIndex", listOf(entry.star.dimensionStack.toStack("star/$galaxyIndex/$entryIndex", entry.star.name, 1))),
                         planets = entry.planets.mapIndexed { planetIndex, planet ->
-                            Planet(
-                                id = "planet_${galaxyIndex}_${entryIndex}_$planetIndex",
-                                planetCoreSize = planet.coreSize.toDouble(),
-                                stacks = listOf(planet.dimensionStack.toStack("planet/$galaxyIndex/$entryIndex/$planetIndex", planet.name, planet.radialScale)),
-                            )
+                            planet.toWorldPlanet("planet_${galaxyIndex}_${entryIndex}_$planetIndex", "planet/$galaxyIndex/$entryIndex/$planetIndex")
                         },
                     )
                 }
@@ -43,6 +39,13 @@ fun UniverseWorldCreationDraft.toWorldType(id: String = "dynamicuniverse:created
         },
     )
 }
+
+private fun EditablePlanet.toWorldPlanet(id: String, path: String): Planet = Planet(
+    id = id,
+    planetCoreSize = coreSize.toDouble(),
+    stacks = listOf(dimensionStack.toStack(path, name, radialScale)),
+    moons = moons.mapIndexed { index, moon -> moon.toWorldPlanet("${id}_moon_$index", "$path/moon/$index") },
+)
 
 private fun EditableDimensionStack.toStack(path: String, name: String, factor: Int): PlanetDimensionStack =
     PlanetDimensionStack(

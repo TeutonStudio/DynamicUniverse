@@ -40,11 +40,10 @@ class UniverseWorldCreationDraftTest {
     }
 
     @Test
-    fun `moving a shell above the surface exposes forbidden air to bedrock order`() {
-        val invalid = EditablePlanet.default().moveDimension(1, 2)
+    fun `shell controls do not move a shell across the surface`() {
+        val planet = EditablePlanet.default()
 
-        assertFalse(invalid.dimensionValidation.isValid)
-        assertTrue(invalid.dimensionValidation.mismatches.any(EditableBoundaryMismatch::isForbiddenAirToBedrock))
+        assertEquals(planet, planet.moveDimension(1, 2))
     }
 
     @Test
@@ -101,5 +100,35 @@ class UniverseWorldCreationDraftTest {
                 DimensionBoundaryInspection(BoundarySurface.AIR, BoundarySurface.BEDROCK, BoundaryEvidence.UNRESOLVED),
             )
         }
+    }
+
+    @Test
+    fun `the optional sky may be removed while the surface remains the outer layer`() {
+        val withoutSky = EditablePlanet.default().removeDimension(EditablePlanet.default().dimensions.lastIndex)
+
+        assertEquals(EditableDimensionRole.SURFACE, withoutSky.dimensions.last().role)
+        assertTrue(withoutSky.dimensionValidation.isValid)
+        assertEquals(withoutSky.dimensionStack, withoutSky.removeDimension(withoutSky.dimensions.lastIndex).dimensionStack)
+    }
+
+    @Test
+    fun `surface metrics count one horizontal period without repeating it`() {
+        val planet = EditablePlanet.default()
+        val surfaceIndex = planet.dimensions.indexOfFirst { it.role == EditableDimensionRole.SURFACE }
+
+        assertEquals(java.math.BigInteger.valueOf(262_144L), DimensionStackMetrics.periodAt(planet, surfaceIndex))
+        assertEquals(java.math.BigInteger.valueOf(68_719_476_736L), DimensionStackMetrics.uniqueAreaAt(planet, surfaceIndex))
+        assertTrue(requireNotNull(DimensionStackMetrics.equivalentSurfaceRadiusBlocks(planet, surfaceIndex)) > 70_000)
+    }
+
+    @Test
+    fun `nested moons are validated and converted as runtime planets`() {
+        val luna = EditablePlanet.default().withBodyKind(CelestialBodyKind.MOON).copy(name = "Luna")
+        val draft = UniverseWorldCreationDraft(EditableUniverse(listOf(EditableGalaxy("Test", listOf(
+            EditableSolarSystem("Test", EditableStar("Sol"), listOf(EditablePlanet.default().copy(moons = listOf(luna)))),
+        )))))
+
+        assertTrue(draft.validation().isValid)
+        assertEquals(2, draft.toWorldType().galaxies.single().groups.single().allPlanets().size)
     }
 }

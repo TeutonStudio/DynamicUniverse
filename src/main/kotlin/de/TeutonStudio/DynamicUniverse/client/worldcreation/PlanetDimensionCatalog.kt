@@ -81,7 +81,7 @@ class PlanetDimensionCatalog(descriptors: Collection<RegisteredDimensionDescript
     fun selectableFor(index: Int, layerCount: Int): List<RegisteredDimensionDescriptor> = selectable().filter { descriptor ->
         when (index) {
             0 -> descriptor.kind == RegisteredDimensionKind.CORE
-            layerCount - 1 -> descriptor.kind == RegisteredDimensionKind.SKY
+            layerCount - 1 -> descriptor.kind == RegisteredDimensionKind.SURFACE || descriptor.kind == RegisteredDimensionKind.SKY
             else -> descriptor.kind != RegisteredDimensionKind.CORE
         }
     }

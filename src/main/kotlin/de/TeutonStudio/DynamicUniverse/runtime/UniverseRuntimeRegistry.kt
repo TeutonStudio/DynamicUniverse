@@ -60,7 +60,7 @@ object UniverseTopology {
 
     fun planets(runtime: UniverseRuntimeApi): List<RegisteredPlanet> = runtime.universes().flatMap { universe ->
         universe.galaxies.flatMap { galaxy -> galaxy.groups.flatMap { group ->
-            group.planets.map { planet -> RegisteredPlanet(universe, planet) }
+            group.allPlanets().map { planet -> RegisteredPlanet(universe, planet) }
         } }
     }
 
@@ -100,6 +100,6 @@ object UniverseTopology {
         } }
 
     private fun planetsFor(universe: UniverseWorldType): List<Planet> = universe.galaxies.flatMap { galaxy ->
-        galaxy.groups.flatMap { it.planets }
+        galaxy.groups.flatMap { it.allPlanets() }
     }
 }

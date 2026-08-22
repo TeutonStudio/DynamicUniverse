@@ -9,8 +9,8 @@ data class UniverseWorldCreationDraft(
     fun validation(): UniverseDraftValidation = UniverseDraftValidation(
         universe.galaxies.flatMapIndexed { galaxyIndex, galaxy ->
             galaxy.entries.flatMapIndexed { entryIndex, entry ->
-                (entry as? EditableSolarSystem)?.planets.orEmpty().mapIndexedNotNull { planetIndex, planet ->
-                    if (planet.dimensionValidation.isValid) null else PlanetDraftValidationError(galaxyIndex, entryIndex, planetIndex, planet.dimensionValidation)
+                (entry as? EditableSolarSystem)?.planets.orEmpty().flatMapIndexed { planetIndex, planet ->
+                    planet.validationErrors(PlanetAddress(galaxyIndex, entryIndex, planetIndex))
                 }
             }
         },
@@ -22,9 +22,7 @@ data class UniverseDraftValidation(val invalidPlanets: List<PlanetDraftValidatio
 }
 
 data class PlanetDraftValidationError(
-    val galaxyIndex: Int,
-    val entryIndex: Int,
-    val planetIndex: Int,
+    val address: PlanetAddress,
     val validation: EditableStackValidation,
 )
 
@@ -43,8 +41,32 @@ data class EditableUniverse(val galaxies: List<EditableGalaxy>) {
 
 data class EditableGalaxy(val name: String, val entries: List<EditableGalaxyEntry>)
 sealed interface EditableGalaxyEntry { val name: String }
-data class EditableSolarSystem(override val name: String, val star: EditableStar, val planets: List<EditablePlanet>) : EditableGalaxyEntry {
-    init { require(planets.isNotEmpty()) { "A solar system needs at least one planet" } }
+data class EditableSolarSystem(
+    override val name: String,
+    val star: EditableStar,
+    val planets: List<EditablePlanet>,
+    /** Distances are deliberately separate from day length; orbital simulation is future work. */
+    val firstPlanetDistanceMilBlocks: Long = DEFAULT_ORBIT_GAP_MILBLOCKS,
+    val planetToPlanetDistancesMilBlocks: List<Long> = List((planets.size - 1).coerceAtLeast(0)) { DEFAULT_ORBIT_GAP_MILBLOCKS },
+) : EditableGalaxyEntry {
+    init {
+        require(planets.isNotEmpty()) { "A solar system needs at least one planet" }
+        require(firstPlanetDistanceMilBlocks > 0) { "The first orbit distance must be positive." }
+        require(planetToPlanetDistancesMilBlocks.size == (planets.size - 1).coerceAtLeast(0)) { "Every pair of planets needs one orbit gap." }
+        require(planetToPlanetDistancesMilBlocks.all { it > 0 }) { "Orbit distances must be positive." }
+    }
+
+    fun withOrbitDistance(index: Int, distanceMilBlocks: Long): EditableSolarSystem = when (index) {
+        0 -> copy(firstPlanetDistanceMilBlocks = distanceMilBlocks.coerceAtLeast(1))
+        in 1..planetToPlanetDistancesMilBlocks.size -> copy(
+            planetToPlanetDistancesMilBlocks = planetToPlanetDistancesMilBlocks.mapIndexed { gapIndex, gap ->
+                if (gapIndex == index - 1) distanceMilBlocks.coerceAtLeast(1) else gap
+            },
+        )
+        else -> this
+    }
+
+    companion object { const val DEFAULT_ORBIT_GAP_MILBLOCKS = 1L }
 }
 data class EditableCloud(override val name: String) : EditableGalaxyEntry
 data class EditableStar(val name: String, val dimensionStack: EditableDimensionStack = EditableDimensionStack.starDefault()) {
@@ -71,17 +93,26 @@ data class EditablePlanet(
     val name: String,
     val dimensionStack: EditableDimensionStack,
     val bodyKind: CelestialBodyKind,
+    val transitionFactor: Int,
     val coreSize: Int,
     val profile: PlanetProfileProvenance,
+    val moons: List<EditablePlanet> = emptyList(),
+    val nebulaRings: List<EditableNebulaRing> = emptyList(),
+    /** Used by moons; a direct planet's distance is owned by its solar system. */
+    val parentOrbitDistanceMilBlocks: Long = DEFAULT_PARENT_ORBIT_DISTANCE_MILBLOCKS,
 ) {
-    init { require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE) }
+    init {
+        require(coreSize in MIN_CORE_SIZE..MAX_CORE_SIZE)
+        require(parentOrbitDistanceMilBlocks > 0)
+    }
 
     val dimensions: List<EditableDimension> get() = dimensionStack.layers
     val dimensionValidation: EditableStackValidation get() = dimensionStack.validation()
-    val radialScale: Int get() = bodyKind.radialScale
+    val radialScale: Int get() = transitionFactor
     val profileLabel: String get() = "$name · ${profile.visibleName}"
 
-    fun withBodyKind(kind: CelestialBodyKind) = if (kind == bodyKind) this else copy(bodyKind = kind).asLocalProfile()
+    fun withBodyKind(kind: CelestialBodyKind) = if (kind == bodyKind) this else copy(bodyKind = kind, transitionFactor = kind.radialScale).asLocalProfile()
+    fun withTransitionFactor(factor: Int) = copy(transitionFactor = factor.coerceIn(MIN_TRANSITION_FACTOR, MAX_TRANSITION_FACTOR)).asLocalProfile()
     fun withCoreSize(size: Int): EditablePlanet {
         val normalized = size.coerceIn(MIN_CORE_SIZE, MAX_CORE_SIZE)
         return if (normalized == coreSize) this else copy(coreSize = normalized).asLocalProfile()
@@ -92,6 +123,10 @@ data class EditablePlanet(
     fun replaceDimension(index: Int, descriptorId: String) = withStack(dimensionStack.replace(index, descriptorId))
     fun insertBalancingDimension(lowerIndex: Int, descriptorId: String) =
         withStack(dimensionStack.insert(lowerIndex + 1, descriptorId))
+
+    fun withMoon(index: Int, transform: (EditablePlanet) -> EditablePlanet): EditablePlanet =
+        copy(moons = moons.mapIndexed { moonIndex, moon -> if (moonIndex == index) transform(moon) else moon })
+    fun withParentOrbitDistance(distanceMilBlocks: Long) = copy(parentOrbitDistanceMilBlocks = distanceMilBlocks.coerceAtLeast(1)).asLocalProfile()
 
     private fun withStack(stack: EditableDimensionStack): EditablePlanet =
         if (stack == dimensionStack) this else copy(dimensionStack = stack).asLocalProfile()
@@ -104,23 +139,64 @@ data class EditablePlanet(
         const val MIN_CORE_SIZE = 8
         const val MAX_CORE_SIZE = 2048
         const val CORE_SIZE_STEP = 8
+        const val MIN_TRANSITION_FACTOR = 1
+        const val MAX_TRANSITION_FACTOR = 64
+        const val DEFAULT_PARENT_ORBIT_DISTANCE_MILBLOCKS = 1L
 
         fun default() = EditablePlanet(
             name = "Terra",
             dimensionStack = EditableDimensionStack.planetDefault(),
             bodyKind = CelestialBodyKind.PLANET,
+            transitionFactor = CelestialBodyKind.PLANET.radialScale,
             coreSize = 32,
             profile = PlanetProfileProvenance("dynamicuniverse:earth", "Erde"),
         )
     }
 }
 
+/** A persisted placeholder for a ring; its geometry and rendering are intentionally not defined in alpha0. */
+data class EditableNebulaRing(val name: String)
+
+data class PlanetAddress(
+    val galaxyIndex: Int,
+    val entryIndex: Int,
+    val planetIndex: Int,
+    val moonIndexes: List<Int> = emptyList(),
+) {
+    fun moon(index: Int): PlanetAddress = copy(moonIndexes = moonIndexes + index)
+}
+
+fun UniverseWorldCreationDraft.planetAt(address: PlanetAddress): EditablePlanet {
+    var planet = (universe.galaxies[address.galaxyIndex].entries[address.entryIndex] as EditableSolarSystem).planets[address.planetIndex]
+    address.moonIndexes.forEach { planet = planet.moons[it] }
+    return planet
+}
+
+fun UniverseWorldCreationDraft.updatePlanet(address: PlanetAddress, transform: (EditablePlanet) -> EditablePlanet): UniverseWorldCreationDraft {
+    fun updateNested(planet: EditablePlanet, path: List<Int>): EditablePlanet =
+        if (path.isEmpty()) transform(planet) else planet.withMoon(path.first()) { updateNested(it, path.drop(1)) }
+    val galaxy = universe.galaxies[address.galaxyIndex]
+    val system = galaxy.entries[address.entryIndex] as EditableSolarSystem
+    val updatedSystem = system.copy(planets = system.planets.mapIndexed { index, planet ->
+        if (index == address.planetIndex) updateNested(planet, address.moonIndexes) else planet
+    })
+    val updatedGalaxy = galaxy.copy(entries = galaxy.entries.mapIndexed { index, entry -> if (index == address.entryIndex) updatedSystem else entry })
+    return copy(universe = universe.copy(galaxies = universe.galaxies.mapIndexed { index, candidate -> if (index == address.galaxyIndex) updatedGalaxy else candidate }))
+}
+
+private fun EditablePlanet.validationErrors(address: PlanetAddress): List<PlanetDraftValidationError> = buildList {
+    if (!dimensionValidation.isValid) add(PlanetDraftValidationError(address, dimensionValidation))
+    moons.forEachIndexed { index, moon -> addAll(moon.validationErrors(address.moon(index))) }
+}
+
 /** An ordered radial stack. It uses template descriptors, never hand-written boundary toggles. */
 data class EditableDimensionStack(val layers: List<EditableDimension>) {
     init {
-        require(layers.size >= 3) { "A planet stack needs at least a core, surface, and sky layer." }
+        require(layers.size >= 2) { "A planet stack needs at least a core and a surface." }
         require(layers.first().role == EditableDimensionRole.CORE) { "The first layer must be the core." }
-        require(layers.last().role == EditableDimensionRole.SKY) { "The final layer must be sky-facing." }
+        require(layers.last().role in setOf(EditableDimensionRole.SURFACE, EditableDimensionRole.SKY)) {
+            "The final layer must be surface-facing or sky-facing."
+        }
     }
 
     companion object {
@@ -148,6 +224,9 @@ data class EditableDimensionStack(val layers: List<EditableDimension>) {
         val shapeErrors = buildList {
             if (surfaceCount != 1) add("A planet stack needs exactly one BEDROCK-to-AIR surface.")
             if (layers.drop(1).dropLast(1).any { it.role == EditableDimensionRole.CORE }) add("The core may only be the lowest layer.")
+            val surfaceIndex = layers.indexOfFirst { it.role == EditableDimensionRole.SURFACE }
+            if (layers.drop(surfaceIndex + 1).any { it.role != EditableDimensionRole.SKY }) add("Only an optional sky layer may follow the surface.")
+            if (layers.count { it.role == EditableDimensionRole.SKY } > 1) add("A stack may have at most one sky layer.")
         }
         return EditableStackValidation(mismatches, unresolved, shapeErrors)
     }
@@ -181,16 +260,18 @@ data class EditableDimensionStack(val layers: List<EditableDimension>) {
     }
 
     fun move(index: Int, delta: Int): EditableDimensionStack {
-        if (index !in 1 until layers.lastIndex) return this
+        if (index !in 1 until layers.lastIndex || layers[index].role != EditableDimensionRole.SHELL) return this
         val target = (index + delta).coerceIn(1, layers.lastIndex - 1)
-        if (target == index) return this
+        if (target == index || layers[target].role != EditableDimensionRole.SHELL) return this
         val mutable = layers.toMutableList()
         mutable.add(target, mutable.removeAt(index))
         return copy(layers = mutable)
     }
 
     fun remove(index: Int): EditableDimensionStack {
-        if (index !in 1 until layers.lastIndex) return this
+        if (index !in 1..layers.lastIndex) return this
+        if (layers[index].role == EditableDimensionRole.SURFACE) return this
+        if (index == layers.lastIndex && layers[index].role != EditableDimensionRole.SKY) return this
         return copy(layers = layers.filterIndexed { candidate, _ -> candidate != index })
     }
 

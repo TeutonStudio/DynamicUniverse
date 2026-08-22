@@ -11,19 +11,17 @@ import net.minecraft.network.chat.Component
 class PlanetConfigurationScreen(
     private val createWorldScreen: CreateWorldScreen,
     private val parent: Screen,
-    private val galaxyIndex: Int,
-    private val entryIndex: Int,
-    private val planetIndex: Int,
+    private val address: PlanetAddress,
 ) : Screen(Component.translatable("dynamicuniverse.planet_config.title")) {
     private var selectedLayerIndex: Int? = null
     private var selectedMismatchLowerIndex: Int? = null
-    private var layerList: UniverseVerticalList? = null
+    private var layerList: DimensionStackList? = null
     private var replacePreviousButton: Button? = null
     private var replaceNextButton: Button? = null
     private var insertBalanceButton: Button? = null
-    private var moveUpButton: Button? = null
-    private var moveDownButton: Button? = null
-    private var removeButton: Button? = null
+    private val hasParentOrbit: Boolean get() = address.moonIndexes.isNotEmpty()
+    private val addDimensionY: Int get() = if (hasParentOrbit) 234 else 190
+    private val tableTop: Int get() = addDimensionY + 42
 
     override fun init() {
         val left = width / 2 - 150
@@ -41,17 +39,34 @@ class PlanetConfigurationScreen(
             decrease = { updatePlanet { it.withCoreSize(it.coreSize - EditablePlanet.CORE_SIZE_STEP) } },
             increase = { updatePlanet { it.withCoreSize(it.coreSize + EditablePlanet.CORE_SIZE_STEP) } },
         )
+        addValueControls(
+            y = 152,
+            label = planet().transitionFactor.toString(),
+            title = Component.literal("Übergangsfaktor nach außen"),
+            decrease = { updatePlanet { it.withTransitionFactor(it.transitionFactor - 1) } },
+            increase = { updatePlanet { it.withTransitionFactor(it.transitionFactor + 1) } },
+        )
+        if (hasParentOrbit) addValueControls(
+            y = 196,
+            label = "${planet().parentOrbitDistanceMilBlocks} MilBlock",
+            title = Component.literal("Abstand zum Elternkörper"),
+            decrease = { updatePlanet { it.withParentOrbitDistance(it.parentOrbitDistanceMilBlocks - 1) } },
+            increase = { updatePlanet { it.withParentOrbitDistance(it.parentOrbitDistanceMilBlocks + 1) } },
+        )
         addRenderableWidget(Button.builder(Component.translatable("dynamicuniverse.planet_config.add_dimension")) {
             updatePlanet { it.addDimension() }
             rebuildLayerList()
-        }.bounds(left, 146, 300, 20).build())
-        layerList = addRenderableWidget(UniverseVerticalList(requireNotNull(minecraft), width, height - 316, 178, 20, layerItems()))
+        }.bounds(left, addDimensionY, 300, 20).build())
+        layerList = addRenderableWidget(DimensionStackList(
+            requireNotNull(minecraft), width, height - 350 + (tableTop - 232), tableTop,
+            ::planet, { selectedLayerIndex }, { index -> selectedLayerIndex = index; selectedMismatchLowerIndex = null; updateActionAvailability() },
+            { lowerIndex -> selectedMismatchLowerIndex = lowerIndex; selectedLayerIndex = null; updateActionAvailability() },
+            { index, delta -> updatePlanet { it.moveDimension(index, delta) }; selectedLayerIndex = (index + delta).coerceAtLeast(1) },
+            { index -> updatePlanet { it.removeDimension(index) }; selectedLayerIndex = null },
+        ))
         replacePreviousButton = addRenderableWidget(Button.builder(Component.literal("< Vorlage")) { cycleSelection(-1) }.bounds(left, height - 130, 96, 20).build())
         replaceNextButton = addRenderableWidget(Button.builder(Component.literal("Vorlage >")) { cycleSelection(1) }.bounds(left + 102, height - 130, 96, 20).build())
         insertBalanceButton = addRenderableWidget(Button.builder(Component.translatable("dynamicuniverse.planet_config.insert_balance")) { insertBalance() }.bounds(left + 204, height - 130, 96, 20).build())
-        moveUpButton = addRenderableWidget(Button.builder(Component.translatable("dynamicuniverse.planet_config.move_up")) { moveSelected(-1) }.bounds(left, height - 104, 96, 20).build())
-        moveDownButton = addRenderableWidget(Button.builder(Component.translatable("dynamicuniverse.planet_config.move_down")) { moveSelected(1) }.bounds(left + 102, height - 104, 96, 20).build())
-        removeButton = addRenderableWidget(Button.builder(Component.translatable("dynamicuniverse.planet_config.remove")) { removeSelected() }.bounds(left + 204, height - 104, 96, 20).build())
         addRenderableWidget(Button.builder(CommonComponents.GUI_DONE) { onClose() }.bounds(left, height - 28, 300, 20).build())
         updateActionAvailability()
     }
@@ -62,38 +77,10 @@ class PlanetConfigurationScreen(
         guiGraphics.drawCenteredString(font, Component.literal(planet().profileLabel), width / 2, 38, SECONDARY_TEXT_COLOR)
         val validation = planet().dimensionValidation
         val label = if (validation.isValid) Component.translatable("dynamicuniverse.planet_config.valid") else Component.translatable("dynamicuniverse.planet_config.invalid", validation.mismatches.size + validation.unresolvedDimensions.size + validation.shapeErrors.size)
-        guiGraphics.drawCenteredString(font, label, width / 2, 170, if (validation.isValid) VALID_COLOR else INVALID_COLOR)
+        guiGraphics.drawCenteredString(font, label, width / 2, tableTop - 18, if (validation.isValid) VALID_COLOR else INVALID_COLOR)
     }
 
     override fun onClose() { minecraft?.setScreen(parent) }
-
-    private fun layerItems(): List<UniverseListItem> = buildList {
-        val stack = planet().dimensionStack
-        val mismatchByLower = planet().dimensionValidation.mismatches.associateBy(EditableBoundaryMismatch::lowerIndex)
-        stack.layers.forEachIndexed { index, dimension ->
-            val prefix = if (index == selectedLayerIndex) "▶ " else "  "
-            val lower = dimension.innerBoundarySurface?.name?.lowercase() ?: "—"
-            val upper = dimension.outerBoundarySurface?.name?.lowercase() ?: "—"
-            val color = when (dimension.status) {
-                DimensionCatalogStatus.VERIFIED -> GREEN
-                DimensionCatalogStatus.DISCOVERED -> ORANGE
-                DimensionCatalogStatus.ISOLATED -> RED
-            }
-            add(UniverseListItem(Component.literal("$prefix${dimension.displayName} · ${dimension.role} [$lower → $upper]"), color = color) {
-                selectedLayerIndex = index
-                selectedMismatchLowerIndex = null
-                rebuildLayerList()
-            })
-            mismatchByLower[index]?.let { mismatch ->
-                val message = if (mismatch.isForbiddenAirToBedrock) "Fehler: Luft → Bedrock ist verboten. Ausgleichsdimension einfügen." else "Fehler: Ausgleichsdimension einfügen."
-                add(UniverseListItem(Component.literal("  ✖ $message"), color = RED, onSelect = {
-                    selectedMismatchLowerIndex = mismatch.lowerIndex
-                    selectedLayerIndex = null
-                    rebuildLayerList()
-                }))
-            }
-        }
-    }
 
     private fun cycleSelection(delta: Int) {
         val index = selectedLayerIndex ?: return
@@ -114,33 +101,13 @@ class PlanetConfigurationScreen(
         rebuildLayerList()
     }
 
-    private fun moveSelected(delta: Int) {
-        selectedLayerIndex?.let { index ->
-            updatePlanet { it.moveDimension(index, delta) }
-            selectedLayerIndex = (index + delta).coerceIn(1, planet().dimensionStack.layers.lastIndex - 1)
-            rebuildLayerList()
-        }
-    }
-
-    private fun removeSelected() {
-        selectedLayerIndex?.let { index ->
-            updatePlanet { it.removeDimension(index) }
-            selectedLayerIndex = null
-            rebuildLayerList()
-        }
-    }
-
-    private fun rebuildLayerList() { layerList?.replaceItems(layerItems()); updateActionAvailability() }
+    private fun rebuildLayerList() { layerList?.rebuild(); updateActionAvailability() }
 
     private fun updateActionAvailability() {
         val index = selectedLayerIndex
-        val inner = index != null && index in 1 until planet().dimensionStack.layers.lastIndex
         replacePreviousButton?.active = index != null
         replaceNextButton?.active = index != null
         insertBalanceButton?.active = selectedMismatchLowerIndex?.let { planet().dimensionStack.balancingCandidates(it).isNotEmpty() } == true
-        moveUpButton?.active = inner && index > 1
-        moveDownButton?.active = inner && index < planet().dimensionStack.layers.lastIndex - 1
-        removeButton?.active = inner
     }
 
     private fun addValueControls(y: Int, title: Component, label: String, decrease: () -> Unit, increase: () -> Unit) {
@@ -151,18 +118,11 @@ class PlanetConfigurationScreen(
         addRenderableWidget(Button.builder(title) { }.bounds(left, y - 22, 300, 20).build()).active = false
     }
 
-    private fun refresh() { minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent, galaxyIndex, entryIndex, planetIndex)) }
-    private fun planet(): EditablePlanet = solarSystem().planets[planetIndex]
-    private fun solarSystem(): EditableSolarSystem = UniverseWorldCreationDraftStore.get(createWorldScreen).universe.galaxies[galaxyIndex].entries[entryIndex] as EditableSolarSystem
+    private fun refresh() { minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent, address)) }
+    private fun planet(): EditablePlanet = UniverseWorldCreationDraftStore.get(createWorldScreen).planetAt(address)
 
     private fun updatePlanet(transform: (EditablePlanet) -> EditablePlanet) {
-        UniverseWorldCreationDraftStore.update(createWorldScreen) { draft ->
-            val galaxy = draft.universe.galaxies[galaxyIndex]
-            val system = galaxy.entries[entryIndex] as EditableSolarSystem
-            val updatedSystem = system.copy(planets = system.planets.mapIndexed { index, candidate -> if (index == planetIndex) transform(candidate) else candidate })
-            val updatedGalaxy = galaxy.copy(entries = galaxy.entries.mapIndexed { index, entry -> if (index == entryIndex) updatedSystem else entry })
-            draft.copy(universe = draft.universe.copy(galaxies = draft.universe.galaxies.mapIndexed { index, candidate -> if (index == galaxyIndex) updatedGalaxy else candidate }))
-        }
+        UniverseWorldCreationDraftStore.update(createWorldScreen) { it.updatePlanet(address, transform) }
     }
 
     private fun nextBodyKind(kind: CelestialBodyKind): CelestialBodyKind = CelestialBodyKind.entries[(kind.ordinal + 1) % CelestialBodyKind.entries.size]
@@ -174,8 +134,5 @@ class PlanetConfigurationScreen(
         const val SECONDARY_TEXT_COLOR = 0xA0A0A0
         const val VALID_COLOR = 0x73D673
         const val INVALID_COLOR = 0xFF6B6B
-        const val GREEN = 0x73D673
-        const val ORANGE = 0xFFB347
-        const val RED = 0xFF5555
     }
 }

@@ -23,7 +23,7 @@ data class UniverseWorldType(
         require(galaxies.map(Galaxy::id).distinct().size == galaxies.size) { "Galaxy ids must be unique." }
         require(isolatedUniverses.map(IsolatedUniverseDefinition::id).distinct().size == isolatedUniverses.size) { "Isolated universe ids must be unique." }
 
-        val planets = galaxies.flatMap { galaxy -> galaxy.groups.flatMap(CelestialGroup::planets) }
+        val planets = galaxies.flatMap { galaxy -> galaxy.groups.flatMap { it.allPlanets() } }
         require(planets.map(Planet::id).distinct().size == planets.size) { "Planet ids must be unique per Universe." }
     }
 
@@ -99,8 +99,10 @@ data class CelestialGroup(
     internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> =
         buildList {
             star?.let { addAll(it.connectionsTo(universeDimension)) }
-            planets.forEach { addAll(it.connectionsTo(universeDimension)) }
+            allPlanets().forEach { addAll(it.connectionsTo(universeDimension)) }
         }
+
+    fun allPlanets(): List<Planet> = planets.flatMap(Planet::includingMoons)
 }
 
 data class Star(
@@ -121,17 +123,21 @@ data class Planet(
     val id: String,
     val planetCoreSize: Double,
     val stacks: List<PlanetDimensionStack>,
+    val moons: List<Planet> = emptyList(),
 ) {
     init {
         requireNodeId(id, "Planet")
         require(planetCoreSize > 0.0 && planetCoreSize.isFinite()) { "Planet-core size must be finite and positive." }
         require(stacks.isNotEmpty()) { "A planet needs at least one dimension stack." }
         require(stacks.map(PlanetDimensionStack::id).distinct().size == stacks.size) { "Stack ids must be unique per planet." }
+        require(moons.map(Planet::id).distinct().size == moons.size) { "Moon ids must be unique per planet." }
     }
 
     internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> = stacks.flatMap { stack ->
         stack.connectionsTo(id, universeDimension)
     }
+
+    fun includingMoons(): List<Planet> = listOf(this) + moons.flatMap(Planet::includingMoons)
 }
 
 private fun PlanetDimensionStack.connectionsTo(ownerId: String, universeDimension: DimensionId): List<DimensionConnection> {
@@ -161,16 +167,18 @@ data class PlanetDimensionStack(
 ) {
     init {
         requireNodeId(id, "Stack")
-        require(layersInnerToOuter.size >= 2) { "A stack needs a planet core and a sky layer." }
+        require(layersInnerToOuter.size >= 2) { "A stack needs a planet core and a surface layer." }
         require(layersInnerToOuter.first().role == PlanetDimensionRole.PLANET_CORE) { "The innermost layer must be the planet core." }
-        require(layersInnerToOuter.last().role == PlanetDimensionRole.SKY) { "The outermost layer must be the sky layer." }
+        require(layersInnerToOuter.last().role == PlanetDimensionRole.SKY || layersInnerToOuter.last().role == PlanetDimensionRole.SURFACE) {
+            "The outermost layer must be the surface or an optional sky layer."
+        }
         require(layersInnerToOuter.map(PlanetDimensionLayer::id).distinct().size == layersInnerToOuter.size) {
             "Layer ids must be unique per stack."
         }
         layersInnerToOuter.dropLast(1).forEach { layer ->
             requireNotNull(layer.toOuterScale) { "Every inner boundary needs an explicit dimension scale." }
         }
-        require(layersInnerToOuter.last().toOuterScale == null) { "The sky layer's next boundary is the Universe transition." }
+        require(layersInnerToOuter.last().toOuterScale == null) { "The outermost layer's next boundary is the Universe transition." }
         layersInnerToOuter.windowed(2).forEach { (inner, outer) ->
             require(inner.outerBoundarySurface == outer.innerBoundarySurface) {
                 "Adjacent dimensions must connect bedrock-to-bedrock or air-to-air."

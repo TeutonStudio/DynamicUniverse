@@ -14,7 +14,7 @@ class WorldCreationInfoScreen(
 ) : Screen(title) {
     override fun init() {
         addRenderableWidget(
-            Button.builder(CommonComponents.GUI_DONE) { onClose() }
+            Button.builder(CommonComponents.GUI_BACK) { onClose() }
                 .bounds(width / 2 - 100, height - 28, 200, 20)
                 .build(),
         )

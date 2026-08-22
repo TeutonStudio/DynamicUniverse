@@ -65,7 +65,7 @@ object UniverseGeometryCompiler {
                     layers += stack.layers(defaultCorePeriod = 16L)
                     airBuffers += stack.airBuffers()
                 }
-                group.planets.forEach { planet ->
+                group.allPlanets().forEach { planet ->
                     val basePeriod = corePeriod(planet.planetCoreSize)
                     planet.stacks.forEach { stack ->
                         layers += stack.layers(basePeriod)
