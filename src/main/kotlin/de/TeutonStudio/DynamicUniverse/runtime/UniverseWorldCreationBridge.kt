@@ -22,7 +22,7 @@ object UniverseWorldCreationBridge {
     ): PersistedUniverseDefinition {
         val definition = PersistedUniverseDefinition(worldType = worldType, bedrockPlanes = bedrockPlanes.toList())
         requireInstalledLevels(server, definition.worldType)
-        val saveData = UniverseSaveData.forServer(server)
+        val saveData = UniverseSaveData.createForServer(server)
         saveData.install(definition)
         activate(definition)
         return definition
@@ -30,7 +30,7 @@ object UniverseWorldCreationBridge {
 
     /** Restores a previously created Universe save; returns false for ordinary worlds. */
     fun restore(server: MinecraftServer): Boolean {
-        val definition = UniverseSaveData.forServer(server).definition ?: run {
+        val definition = UniverseSaveData.findForServer(server)?.definition ?: run {
             UniverseRuntime.clear()
             BedrockApertureRuntime.clear()
             return false

@@ -48,8 +48,13 @@ class UniverseSaveData private constructor(
                 ?.let(UniversePersistenceCodec::decode))
         })
 
-        fun forServer(server: MinecraftServer): UniverseSaveData =
+        /** Creates storage only for the successful new-world creation transaction. */
+        fun createForServer(server: MinecraftServer): UniverseSaveData =
             server.overworld().dataStorage.computeIfAbsent(FACTORY, DATA_ID)
+
+        /** Normal and failed creations must not allocate Universe save data at server start. */
+        fun findForServer(server: MinecraftServer): UniverseSaveData? =
+            server.overworld().dataStorage.get(FACTORY, DATA_ID)
     }
 }
 
