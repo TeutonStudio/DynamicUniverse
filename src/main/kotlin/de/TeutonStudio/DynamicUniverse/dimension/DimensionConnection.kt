@@ -41,6 +41,9 @@ data class DimensionPosition(val x: Long, val y: Long, val z: Long)
 /** The material exposed on one side of a vertical boundary. */
 enum class BoundarySurface { BEDROCK, AIR }
 
+/** Which horizontal boundary plane of a dimension a radial route uses. */
+enum class DimensionBoundaryFace { LOWER, UPPER }
+
 /** The final sky-to-Universe route is a seamless flight/vehicle transition, not a block layer. */
 enum class DimensionConnectionKind { RADIAL_BOUNDARY, UNIVERSE_TRANSITION }
 
@@ -140,6 +143,8 @@ data class DimensionConnection(
     val scale: DimensionScale,
     val physicalScale: Double = 1.0,
     val boundarySurface: BoundarySurface = BoundarySurface.AIR,
+    val sourceBoundaryFace: DimensionBoundaryFace = DimensionBoundaryFace.UPPER,
+    val targetBoundaryFace: DimensionBoundaryFace = DimensionBoundaryFace.LOWER,
     val kind: DimensionConnectionKind = DimensionConnectionKind.RADIAL_BOUNDARY,
     val transform: DimensionTransform = DimensionTransform(scale, physicalScale),
 ) {
@@ -166,6 +171,8 @@ data class DimensionConnection(
         scale = scale.inverse(),
         physicalScale = 1.0 / physicalScale,
         boundarySurface = boundarySurface,
+        sourceBoundaryFace = targetBoundaryFace,
+        targetBoundaryFace = sourceBoundaryFace,
         kind = kind,
         transform = transform.inverse(),
     )

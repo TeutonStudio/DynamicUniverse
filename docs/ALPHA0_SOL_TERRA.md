@@ -43,6 +43,23 @@ The outermost sky layer connects to `UniverseSpace` as a seamless transition
 for Creative flight and complete Sable vehicles. Coordinate selection and
 physical object scale stay separate: the latter remains 1:1.
 
+## Bedrock apertures
+
+A Bedrock-to-Bedrock boundary is an eligible radial aperture. Its generator
+adapter records the exact lower or upper Bedrock plane for each local
+dimension. When a player breaks Bedrock exactly on such a registered plane,
+the server maps the horizontal coordinate through the stack scale and removes
+the corresponding Bedrock block from the adjacent level as well. The source
+break then completes normally, leaving one matching hole on both sides.
+
+This rule is intentionally narrow: ordinary Bedrock elsewhere, AIR boundaries,
+the core's missing lower boundary, and the sky-to-Universe transition never
+open an aperture. If the mapped target is no longer Bedrock, the source break
+is left alone rather than overwriting player changes. The generated chunk data
+persists both holes; runtime setup installs the immutable geometry manifest and
+the generator-reported planes through `BedrockApertureRuntime.install` after
+the local levels exist.
+
 ## Local profiles and the End
 
 Changing a body created from a template immediately materializes a local custom
