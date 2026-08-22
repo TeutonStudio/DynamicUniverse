@@ -2,8 +2,14 @@ package de.TeutonStudio.DynamicUniverse.worldtype
 
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnection
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionGraph
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaries
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
+import de.TeutonStudio.DynamicUniverse.dimension.LocalEuclideanPortal
+import de.TeutonStudio.DynamicUniverse.dimension.LocalEuclideanPortalGraph
+import de.TeutonStudio.DynamicUniverse.dimension.PlanetDimensionStackValidator
+import de.TeutonStudio.DynamicUniverse.dimension.VerticalDimensionEndpoint
+import de.TeutonStudio.DynamicUniverse.dimension.VerticalDimensionFace
 
 /** The configurable Universe world type. It has no client or portal-mod dependency. */
 data class UniverseWorldType(
@@ -18,11 +24,26 @@ data class UniverseWorldType(
 
         val planets = galaxies.flatMap { galaxy -> galaxy.groups.flatMap(CelestialGroup::planets) }
         require(planets.map(Planet::id).distinct().size == planets.size) { "Planet ids must be unique per Universe." }
+        val dimensions = planets.flatMap { planet -> planet.stacks.flatMap(PlanetDimensionStack::layersInnerToOuter) }
+            .map(PlanetDimensionLayer::dimension)
+        require(dimensions.distinct().size == dimensions.size) {
+            "A dimension may belong to only one planet stack so its vertical neighbours are unambiguous."
+        }
     }
 
     fun connectionGraph(): DimensionConnectionGraph = DimensionConnectionGraph(
-        galaxies.flatMap { galaxy -> galaxy.groups }
-            .flatMap { group -> group.connectionsTo(universeDimension) },
+        galaxies.flatMap { galaxy -> galaxy.groups.flatMap(CelestialGroup::planets) }
+            .flatMap { planet -> planet.connectionsTo(universeDimension) },
+    )
+
+    /**
+     * Produces directed portal specifications for every shared layer boundary.
+     * The final sky-to-Universe route is intentionally excluded: it has no
+     * physical upper layer boundary to anchor a local portal to.
+     */
+    fun localEuclideanPortalGraph(): LocalEuclideanPortalGraph = LocalEuclideanPortalGraph(
+        galaxies.flatMap { galaxy -> galaxy.groups.flatMap(CelestialGroup::planets) }
+            .flatMap(Planet::localEuclideanPortals),
     )
 }
 
@@ -53,26 +74,12 @@ data class CelestialGroup(
             CelestialGroupKind.CLOUD -> require(star == null) { "A cloud cannot own a star." }
         }
     }
-
-    internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> =
-        buildList {
-            star?.let { addAll(it.connectionsTo(universeDimension)) }
-            planets.forEach { addAll(it.connectionsTo(universeDimension)) }
-        }
 }
 
-data class Star(
-    val id: String,
-    val stacks: List<PlanetDimensionStack>,
-) {
+data class Star(val id: String) {
     init {
         requireNodeId(id, "Star")
-        require(stacks.isNotEmpty()) { "A star needs at least one vertical dimension stack." }
-        require(stacks.map(PlanetDimensionStack::id).distinct().size == stacks.size) { "Stack ids must be unique per star." }
     }
-
-    internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> =
-        stacks.flatMap { stack -> stack.connectionsTo(id, universeDimension) }
 }
 
 data class Planet(
@@ -88,25 +95,24 @@ data class Planet(
     }
 
     internal fun connectionsTo(universeDimension: DimensionId): List<DimensionConnection> = stacks.flatMap { stack ->
-        stack.connectionsTo(id, universeDimension)
-    }
-}
-
-private fun PlanetDimensionStack.connectionsTo(ownerId: String, universeDimension: DimensionId): List<DimensionConnection> {
-    val radial = layersInnerToOuter.windowed(2).map { (inner, outer) ->
-        DimensionConnection(
-            id = "$ownerId/$id/${inner.id}-to-${outer.id}",
-            source = inner.dimension,
-            target = outer.dimension,
-            scale = requireNotNull(inner.toOuterScale),
+        val radial = stack.layersInnerToOuter.windowed(2).map { (inner, outer) ->
+            DimensionConnection(
+                id = "$id/${stack.id}/${inner.id}-to-${outer.id}",
+                source = inner.dimension,
+                target = outer.dimension,
+                scale = requireNotNull(inner.toOuterScale),
+            )
+        }
+        radial + DimensionConnection(
+            id = "$id/${stack.id}/${stack.layersInnerToOuter.last().id}-to-universe",
+            source = stack.layersInnerToOuter.last().dimension,
+            target = universeDimension,
+            scale = stack.outerToUniverseScale,
         )
     }
-    return radial + DimensionConnection(
-        id = "$ownerId/$id/${layersInnerToOuter.last().id}-to-universe",
-        source = layersInnerToOuter.last().dimension,
-        target = universeDimension,
-        scale = outerToUniverseScale,
-    )
+
+    internal fun localEuclideanPortals(): List<LocalEuclideanPortal> =
+        stacks.flatMap { stack -> stack.localEuclideanPortals(id) }
 }
 
 data class PlanetDimensionStack(
@@ -122,11 +128,43 @@ data class PlanetDimensionStack(
         require(layersInnerToOuter.map(PlanetDimensionLayer::id).distinct().size == layersInnerToOuter.size) {
             "Layer ids must be unique per stack."
         }
+        require(layersInnerToOuter.map(PlanetDimensionLayer::dimension).distinct().size == layersInnerToOuter.size) {
+            "A dimension may occur only once per stack."
+        }
         layersInnerToOuter.dropLast(1).forEach { layer ->
             requireNotNull(layer.toOuterScale) { "Every inner boundary needs an explicit dimension scale." }
         }
         require(layersInnerToOuter.last().toOuterScale == null) { "The sky layer's next boundary is the stack scale." }
+        require(PlanetDimensionStackValidator.incompatibleTransitions(layersInnerToOuter.map(PlanetDimensionLayer::boundaries)).isEmpty()) {
+            "Adjacent dimension boundaries must match (AIR-to-AIR or BEDROCK-to-BEDROCK)."
+        }
     }
+
+    internal fun localEuclideanPortals(planetId: String): List<LocalEuclideanPortal> =
+        layersInnerToOuter.windowed(2).flatMap { (lower, upper) ->
+            val scaleToUpper = requireNotNull(lower.toOuterScale)
+            val boundary = lower.boundaries.outer
+            check(boundary == upper.boundaries.inner) {
+                "Validated dimension stacks must have matching shared boundaries."
+            }
+            val baseId = "$planetId/$id/${lower.id}-to-${upper.id}"
+            listOf(
+                LocalEuclideanPortal(
+                    id = "$baseId:up",
+                    source = VerticalDimensionEndpoint(lower.dimension, VerticalDimensionFace.TOP),
+                    target = VerticalDimensionEndpoint(upper.dimension, VerticalDimensionFace.BOTTOM),
+                    boundary = boundary,
+                    scale = scaleToUpper,
+                ),
+                LocalEuclideanPortal(
+                    id = "$baseId:down",
+                    source = VerticalDimensionEndpoint(upper.dimension, VerticalDimensionFace.BOTTOM),
+                    target = VerticalDimensionEndpoint(lower.dimension, VerticalDimensionFace.TOP),
+                    boundary = boundary,
+                    scale = scaleToUpper.inverse(),
+                ),
+            )
+        }
 }
 
 enum class PlanetDimensionRole { PLANET_CORE, INNER, SURFACE, SKY, CUSTOM }
@@ -136,9 +174,14 @@ data class PlanetDimensionLayer(
     val role: PlanetDimensionRole,
     val dimension: DimensionId,
     val toOuterScale: DimensionScale? = null,
+    val boundaries: DimensionBoundaries = DimensionBoundaries.AIR_TO_AIR,
 ) {
     init {
         requireNodeId(id, "Dimension layer")
+        val isSurfaceBoundary = boundaries.inner != boundaries.outer
+        require((role == PlanetDimensionRole.SURFACE) == isSurfaceBoundary) {
+            "Only a surface may have BEDROCK on one edge and AIR on the other."
+        }
     }
 }
 

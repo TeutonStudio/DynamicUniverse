@@ -7,41 +7,30 @@ import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen
 import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 
-/** Edits the three planet values supported by the current Universe world-type draft. */
+/** Identifies either a planet's settings or one of its direct moons' settings. */
+data class PlanetSettingsAddress(
+    val galaxyIndex: Int,
+    val entryIndex: Int,
+    val planetIndex: Int,
+    val moonIndex: Int? = null,
+)
+
+/** Edits the shared topology settings of a planet or moon. */
 class PlanetConfigurationScreen(
     private val createWorldScreen: CreateWorldScreen,
     private val parent: Screen,
-    private val galaxyIndex: Int,
-    private val entryIndex: Int,
-    private val planetIndex: Int,
+    private val address: PlanetSettingsAddress,
 ) : Screen(Component.translatable("dynamicuniverse.planet_config.title")) {
     override fun init() {
-        val left = width / 2 - 150
-        addValueControls(
-            y = 64,
-            label = planet().intermediateDimensionCount.toString(),
-            title = Component.translatable("dynamicuniverse.planet_config.layers"),
-            decrease = { updatePlanet { it.withIntermediateDimensionCount(it.intermediateDimensionCount - 1) } },
-            increase = { updatePlanet { it.withIntermediateDimensionCount(it.intermediateDimensionCount + 1) } },
-        )
-        addValueControls(
-            y = 108,
-            label = "1/${planet().dimensionTransitionFactor}",
-            title = Component.translatable("dynamicuniverse.planet_config.transition_factor"),
-            decrease = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor - 1) } },
-            increase = { updatePlanet { it.withTransitionFactor(it.dimensionTransitionFactor + 1) } },
-        )
-        addValueControls(
-            y = 152,
-            label = planet().coreSize.toString(),
-            title = Component.translatable("dynamicuniverse.planet_config.core_size"),
-            decrease = { updatePlanet { it.withCoreSize(it.coreSize - EditablePlanet.CORE_SIZE_STEP) } },
-            increase = { updatePlanet { it.withCoreSize(it.coreSize + EditablePlanet.CORE_SIZE_STEP) } },
+        addRenderableWidget(
+            PlanetDimensionList(
+                requireNotNull(minecraft), width, height - LIST_TOP - FOOTER_HEIGHT, LIST_TOP,
+                ::settings, ::updateSettings,
+            ),
         )
         addRenderableWidget(
             Button.builder(CommonComponents.GUI_DONE) { onClose() }
-                .bounds(left, height - 28, 300, 20)
-                .build(),
+                .bounds(width / 2 - 150, height - 28, 300, 20).build(),
         )
     }
 
@@ -49,69 +38,49 @@ class PlanetConfigurationScreen(
         super.render(guiGraphics, mouseX, mouseY, partialTick)
         guiGraphics.drawCenteredString(font, title, width / 2, 20, TEXT_COLOR)
         guiGraphics.drawCenteredString(
-            font,
-            Component.translatable("dynamicuniverse.planet_config.subtitle", planet().name),
-            width / 2,
-            38,
-            SECONDARY_TEXT_COLOR,
+            font, Component.translatable("dynamicuniverse.planet_config.subtitle", bodyName()),
+            width / 2, 38, SECONDARY_TEXT_COLOR,
         )
     }
 
-    override fun onClose() {
-        minecraft?.setScreen(parent)
-    }
+    override fun onClose() { minecraft?.setScreen(parent) }
 
-    private fun addValueControls(
-        y: Int,
-        title: Component,
-        label: String,
-        decrease: () -> Unit,
-        increase: () -> Unit,
-    ) {
-        val left = width / 2 - 150
-        addRenderableWidget(Button.builder(Component.literal("-")) {
-            decrease()
-            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent, galaxyIndex, entryIndex, planetIndex))
-        }.bounds(left, y, 40, 20).build())
-        addRenderableWidget(Button.builder(Component.literal(label)) { }.bounds(left + 44, y, 212, 20).build()).active = false
-        addRenderableWidget(Button.builder(Component.literal("+")) {
-            increase()
-            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, parent, galaxyIndex, entryIndex, planetIndex))
-        }.bounds(left + 260, y, 40, 20).build())
-        addRenderableWidget(Button.builder(title) { }.bounds(left, y - 22, 300, 20).build()).active = false
-    }
+    private fun bodyName(): String = address.moonIndex?.let { planet().moons[it].name } ?: planet().name
+    private fun settings(): EditablePlanetSettings = address.moonIndex?.let { planet().moons[it].settings } ?: planet().settings
 
-    private fun planet(): EditablePlanet = solarSystem().planets[planetIndex]
-
+    private fun planet(): EditablePlanet = solarSystem().planets[address.planetIndex]
     private fun solarSystem(): EditableSolarSystem =
-        UniverseWorldCreationDraftStore.get(createWorldScreen).universe.galaxies[galaxyIndex].entries[entryIndex] as EditableSolarSystem
+        UniverseWorldCreationDraftStore.get(createWorldScreen).universe.galaxies[address.galaxyIndex].entries[address.entryIndex] as EditableSolarSystem
 
-    private fun updatePlanet(transform: (EditablePlanet) -> EditablePlanet) {
+    private fun updateSettings(transform: (EditablePlanetSettings) -> EditablePlanetSettings) {
         UniverseWorldCreationDraftStore.update(createWorldScreen) { draft ->
-            val galaxy = draft.universe.galaxies[galaxyIndex]
-            val solarSystem = galaxy.entries[entryIndex] as EditableSolarSystem
-            val updatedSolarSystem = solarSystem.copy(
-                planets = solarSystem.planets.mapIndexed { index, planet ->
-                    if (index == planetIndex) transform(planet) else planet
-                },
-            )
-            val updatedGalaxy = galaxy.copy(
-                entries = galaxy.entries.mapIndexed { index, entry ->
-                    if (index == entryIndex) updatedSolarSystem else entry
-                },
-            )
-            draft.copy(
-                universe = draft.universe.copy(
-                    galaxies = draft.universe.galaxies.mapIndexed { index, candidate ->
-                        if (index == galaxyIndex) updatedGalaxy else candidate
-                    },
-                ),
-            )
+            val galaxy = draft.universe.galaxies[address.galaxyIndex]
+            val solarSystem = galaxy.entries[address.entryIndex] as EditableSolarSystem
+            val updatedSolarSystem = solarSystem.copy(planets = solarSystem.planets.mapIndexed { planetIndex, planet ->
+                if (planetIndex != address.planetIndex) planet else updatePlanetSettings(planet, transform)
+            })
+            val updatedGalaxy = galaxy.copy(entries = galaxy.entries.mapIndexed { entryIndex, entry ->
+                if (entryIndex == address.entryIndex) updatedSolarSystem else entry
+            })
+            draft.copy(universe = draft.universe.copy(galaxies = draft.universe.galaxies.mapIndexed { galaxyIndex, candidate ->
+                if (galaxyIndex == address.galaxyIndex) updatedGalaxy else candidate
+            }))
         }
     }
+
+    private fun updatePlanetSettings(
+        planet: EditablePlanet,
+        transform: (EditablePlanetSettings) -> EditablePlanetSettings,
+    ): EditablePlanet = address.moonIndex?.let { moonIndex ->
+        planet.copy(moons = planet.moons.mapIndexed { index, moon ->
+            if (index == moonIndex) moon.copy(settings = transform(moon.settings)) else moon
+        })
+    } ?: planet.copy(settings = transform(planet.settings))
 
     private companion object {
         const val TEXT_COLOR = 0xFFFFFF
         const val SECONDARY_TEXT_COLOR = 0xA0A0A0
+        const val LIST_TOP = 56
+        const val FOOTER_HEIGHT = 40
     }
 }

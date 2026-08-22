@@ -19,7 +19,6 @@ class UniverseHierarchyScreen(
 ) : Screen(Component.translatable("dynamicuniverse.universe_config.title")) {
     private val expandedGalaxies = mutableSetOf<Int>()
     private val expandedSolarSystems = mutableSetOf<SolarSystemAddress>()
-    private val expandedStars = mutableSetOf<SolarSystemAddress>()
     private val expandedPlanets = mutableSetOf<PlanetAddress>()
     private var tree: UniverseVerticalList? = null
 
@@ -54,7 +53,6 @@ class UniverseHierarchyScreen(
     }
 
     override fun onClose() {
-        UniverseWorldCreationDraftStore.freezeWorldType(createWorldScreen)
         minecraft?.setScreen(parent)
     }
 
@@ -106,39 +104,63 @@ class UniverseHierarchyScreen(
         )
         if (!expanded) return
 
-        addStarItems(address, solarSystem.star)
+        add(
+            UniverseListItem(
+                Component.translatable("dynamicuniverse.universe_config.star", solarSystem.star.name),
+                SOLAR_SYSTEM_CHILD_INDENT,
+            ) {
+                minecraft?.setScreen(
+                    WorldCreationInfoScreen(
+                        this@UniverseHierarchyScreen,
+                        Component.translatable("dynamicuniverse.star_config.title", solarSystem.star.name),
+                        listOf(Component.translatable("dynamicuniverse.star_config.info")),
+                    ),
+                )
+            },
+        )
         solarSystem.planets.forEachIndexed { planetIndex, planet ->
-            addPlanetItems(PlanetAddress(galaxyIndex, entryIndex, planetIndex), planet)
-        }
-    }
-
-    private fun MutableList<UniverseListItem>.addStarItems(address: SolarSystemAddress, star: EditableStar) {
-        val expanded = address in expandedStars
-        add(UniverseListItem(expandLabel(expanded, Component.translatable("dynamicuniverse.universe_config.star", star.name)), SOLAR_SYSTEM_CHILD_INDENT) {
-            if (!expandedStars.add(address)) expandedStars.remove(address)
-            rebuildTree()
-        })
-        if (!expanded) return
-        add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.dimension_settings"), BODY_CHILD_INDENT) {
-            minecraft?.setScreen(WorldCreationInfoScreen(this@UniverseHierarchyScreen, Component.translatable("dynamicuniverse.star_config.title", star.name), listOf(Component.translatable("dynamicuniverse.star_config.info"))))
-        })
-        star.dimensions.forEach { dimension ->
-            add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.dimension", dimension.displayName), BODY_CHILD_INDENT, onSelect = {}))
-        }
-    }
-
-    private fun MutableList<UniverseListItem>.addPlanetItems(address: PlanetAddress, planet: EditablePlanet) {
-        val expanded = address in expandedPlanets
-        add(UniverseListItem(expandLabel(expanded, Component.translatable("dynamicuniverse.universe_config.planet", planet.name)), SOLAR_SYSTEM_CHILD_INDENT) {
-            if (!expandedPlanets.add(address)) expandedPlanets.remove(address)
-            rebuildTree()
-        })
-        if (!expanded) return
-        add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.dimension_settings"), BODY_CHILD_INDENT) {
-            minecraft?.setScreen(PlanetConfigurationScreen(createWorldScreen, this@UniverseHierarchyScreen, address.galaxyIndex, address.entryIndex, address.planetIndex))
-        })
-        planet.dimensions.forEach { dimension ->
-            add(UniverseListItem(Component.translatable("dynamicuniverse.universe_config.dimension", dimension.displayName), BODY_CHILD_INDENT, onSelect = {}))
+            val address = PlanetAddress(galaxyIndex, entryIndex, planetIndex)
+            val expanded = address in expandedPlanets
+            add(
+                UniverseListItem(
+                    expandLabel(expanded, Component.translatable("dynamicuniverse.universe_config.planet", planet.name)),
+                    SOLAR_SYSTEM_CHILD_INDENT,
+                ) {
+                    if (!expandedPlanets.add(address)) expandedPlanets.remove(address)
+                    rebuildTree()
+                },
+            )
+            if (!expanded) return@forEachIndexed
+            add(
+                UniverseListItem(
+                    Component.translatable("dynamicuniverse.universe_config.planet_settings", planet.name),
+                    PLANET_CHILD_INDENT,
+                ) {
+                    minecraft?.setScreen(
+                        PlanetConfigurationScreen(
+                            createWorldScreen,
+                            this@UniverseHierarchyScreen,
+                            PlanetSettingsAddress(galaxyIndex, entryIndex, planetIndex),
+                        ),
+                    )
+                },
+            )
+            planet.moons.forEachIndexed { moonIndex, moon ->
+                add(
+                    UniverseListItem(
+                        Component.translatable("dynamicuniverse.universe_config.moon", moon.name),
+                        PLANET_CHILD_INDENT,
+                    ) {
+                        minecraft?.setScreen(
+                            PlanetConfigurationScreen(
+                                createWorldScreen,
+                                this@UniverseHierarchyScreen,
+                                PlanetSettingsAddress(galaxyIndex, entryIndex, planetIndex, moonIndex),
+                            ),
+                        )
+                    },
+                )
+            }
         }
     }
 
@@ -164,7 +186,11 @@ class UniverseHierarchyScreen(
         val entryIndex: Int,
     )
 
-    private data class PlanetAddress(val galaxyIndex: Int, val entryIndex: Int, val planetIndex: Int)
+    private data class PlanetAddress(
+        val galaxyIndex: Int,
+        val entryIndex: Int,
+        val planetIndex: Int,
+    )
 
     private companion object {
         const val TITLE_Y = 20
@@ -174,7 +200,7 @@ class UniverseHierarchyScreen(
         const val ROW_HEIGHT = 20
         const val GALAXY_CHILD_INDENT = 1
         const val SOLAR_SYSTEM_CHILD_INDENT = 2
-        const val BODY_CHILD_INDENT = 3
+        const val PLANET_CHILD_INDENT = 3
         const val TEXT_COLOR = 0xFFFFFF
         const val SECONDARY_TEXT_COLOR = 0xA0A0A0
     }

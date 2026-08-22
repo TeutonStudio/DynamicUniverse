@@ -1,50 +1,84 @@
 package de.TeutonStudio.DynamicUniverse.client.worldcreation
 
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaryType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertTrue
 
 class UniverseWorldCreationDraftTest {
     @Test
-    fun `planet values stay within their supported ranges`() {
-        val planet = EditablePlanet.default()
+    fun `planet settings stay within their supported ranges`() {
+        val settings = EditablePlanetSettings.default()
 
-        assertEquals(4, planet.dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MIN_INTERMEDIATE_DIMENSIONS, planet.withIntermediateDimensionCount(-1).intermediateDimensionCount)
-        assertEquals(EditablePlanet.MAX_INTERMEDIATE_DIMENSIONS, planet.withIntermediateDimensionCount(99).intermediateDimensionCount)
-        assertEquals(EditablePlanet.MIN_TRANSITION_FACTOR, planet.withTransitionFactor(0).dimensionTransitionFactor)
-        assertEquals(5, planet.withTransitionFactor(5).dimensionTransitionFactor)
-        assertEquals(6, planet.withTransitionFactor(6).dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MAX_TRANSITION_FACTOR, planet.withTransitionFactor(128).dimensionTransitionFactor)
-        assertEquals(EditablePlanet.MIN_CORE_SIZE, planet.withCoreSize(0).coreSize)
-        assertEquals(EditablePlanet.MAX_CORE_SIZE, planet.withCoreSize(999).coreSize)
+        assertEquals(4, settings.dimensionTransitionFactor)
+        assertEquals(EditablePlanetSettings.MIN_INTERMEDIATE_DIMENSIONS, settings.withIntermediateDimensionCount(-1).intermediateDimensionCount)
+        assertEquals(EditablePlanetSettings.MAX_INTERMEDIATE_DIMENSIONS, settings.withIntermediateDimensionCount(99).intermediateDimensionCount)
+        assertEquals(EditablePlanetSettings.MIN_TRANSITION_FACTOR, settings.withTransitionFactor(0).dimensionTransitionFactor)
+        assertEquals(5, settings.withTransitionFactor(5).dimensionTransitionFactor)
+        assertEquals(EditablePlanetSettings.MAX_TRANSITION_FACTOR, settings.withTransitionFactor(128).dimensionTransitionFactor)
+        assertEquals(EditablePlanetSettings.MIN_CORE_SIZE, settings.withCoreSize(0).coreSize)
+        assertEquals(EditablePlanetSettings.MAX_CORE_SIZE, settings.withCoreSize(999).coreSize)
     }
 
     @Test
-    fun `default draft contains the initial editable hierarchy`() {
+    fun `default draft contains planets with direct moon subobjects`() {
         val universe = EditableUniverse.default()
-        val draft = UniverseWorldCreationDraft(universe = universe)
-        val galaxy = draft.universe.galaxies.single()
+        val galaxy = universe.galaxies.single()
         val solarSystem = galaxy.entries.filterIsInstance<EditableSolarSystem>().single()
+        val planet = solarSystem.planets.single()
 
         assertEquals("Lokale Gruppe", galaxy.name)
         assertEquals("Sol", solarSystem.name)
         assertEquals("Sol", solarSystem.star.name)
-        assertEquals(listOf("Sternkern", "Strahlungszone", "Korona"), solarSystem.star.dimensions.map(EditableDimension::displayName))
-        assertEquals("Terra", solarSystem.planets.single().name)
-        assertEquals(listOf("Planetenkern", "Innere Dimension 1", "Innere Dimension 2", "Oberfläche"), solarSystem.planets.single().dimensions.map(EditableDimension::displayName))
+        assertEquals("Terra", planet.name)
+        assertEquals("Luna", planet.moons.single().name)
+        assertEquals(PlanetPrefabRegistry.MOON_ID, planet.moons.single().settings.sourcePrefabId)
         assertEquals("Orion-Wolke", galaxy.entries.filterIsInstance<EditableCloud>().single().name)
     }
 
     @Test
-    fun `draft freezes planet and star vertical stacks into the world type`() {
-        val worldType = UniverseWorldCreationDraft().toWorldType()
-        val system = worldType.galaxies.single().groups.first { it.kind.name == "SOLAR_SYSTEM" }
-        val star = requireNotNull(system.star)
-        val graph = worldType.connectionGraph()
+    fun `dimensions use registered descriptor IDs and retain compatible boundaries`() {
+        val settings = EditablePlanetSettings.default()
 
-        assertEquals(3, star.stacks.single().layersInnerToOuter.size)
-        assertEquals(4, system.planets.single().stacks.single().layersInnerToOuter.size)
-        assertEquals(1, graph.routesFrom(star.stacks.single().layersInnerToOuter.first().dimension).size)
-        assertEquals(1, graph.routesFrom(system.planets.single().stacks.single().layersInnerToOuter.first().dimension).size)
+        assertEquals(6, settings.dimensions.size)
+        assertEquals(PlanetDimensionRegistry.CORE_ID, settings.dimensions.first().descriptorId)
+        assertEquals(PlanetDimensionRegistry.NETHER_ID, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.NETHER }.descriptorId)
+        assertEquals(PlanetDimensionRegistry.SURFACE_ID, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.descriptorId)
+        assertEquals(DimensionBoundaryType.BEDROCK, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.inner)
+        assertEquals(DimensionBoundaryType.AIR, settings.dimensions.single { it.kind == EditablePlanetDimensionKind.SURFACE }.boundaries.outer)
+        assertTrue(settings.incompatibleDimensionTransitions.isEmpty())
+    }
+
+    @Test
+    fun `applying a prefab creates independent editable settings`() {
+        val earth = PlanetPrefabRegistry.require(PlanetPrefabRegistry.EARTH_ID)
+        val firstPlanetSettings = EditablePlanetSettings.default().applyPrefab(earth)
+        val secondPlanetSettings = EditablePlanetSettings.default().applyPrefab(earth)
+        val editedFirstPlanetSettings = firstPlanetSettings.withCoreSize(64)
+
+        assertEquals(PlanetPrefabRegistry.EARTH_ID, firstPlanetSettings.sourcePrefabId)
+        assertEquals(32, secondPlanetSettings.coreSize)
+        assertEquals(64, editedFirstPlanetSettings.coreSize)
+        assertEquals(PlanetPrefabRegistry.EARTH_ID, editedFirstPlanetSettings.sourcePrefabId)
+        assertNotSame(firstPlanetSettings.dimensions, secondPlanetSettings.dimensions)
+        assertEquals(32, earth.coreSize)
+    }
+
+    @Test
+    fun `prefab application replaces the complete topology in its defined order`() {
+        val moonSettings = EditablePlanetSettings.default().applyPrefab(PlanetPrefabRegistry.require(PlanetPrefabRegistry.MOON_ID))
+
+        assertEquals(PlanetPrefabRegistry.MOON_ID, moonSettings.sourcePrefabId)
+        assertEquals(4, moonSettings.dimensions.size)
+        assertEquals(
+            listOf(
+                PlanetDimensionRegistry.CORE_ID,
+                PlanetDimensionRegistry.NETHER_ID,
+                PlanetDimensionRegistry.SURFACE_ID,
+                PlanetDimensionRegistry.SKY_ID,
+            ),
+            moonSettings.dimensions.map { it.descriptorId },
+        )
     }
 }

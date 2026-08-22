@@ -6,10 +6,10 @@
   "dynamicuniverse.universe_config.galaxy": "Galaxy: %s",
   "dynamicuniverse.universe_config.solar_system": "Solar system: %s",
   "dynamicuniverse.universe_config.cloud": "Cloud: %s",
-  "dynamicuniverse.universe_config.star": "Star: %s",
+  "dynamicuniverse.universe_config.star": "Star: %s – settings",
   "dynamicuniverse.universe_config.planet": "Planet: %s",
-  "dynamicuniverse.universe_config.dimension_settings": "Dimension stack settings",
-  "dynamicuniverse.universe_config.dimension": "Dimension: %s",
+  "dynamicuniverse.universe_config.planet_settings": "Planet: %s – settings",
+  "dynamicuniverse.universe_config.moon": "Moon: %s – settings",
   "dynamicuniverse.galaxy_config.screen_title": "Galaxy",
   "dynamicuniverse.galaxy_config.title": "Galaxy: %s",
   "dynamicuniverse.galaxy_config.subtitle": "Solar systems and clouds",
@@ -22,7 +22,11 @@
   "dynamicuniverse.star_config.info": "Star properties are prepared; planet settings can already be edited.",
   "dynamicuniverse.planet_config.title": "Configure planet",
   "dynamicuniverse.planet_config.subtitle": "Settings for %s",
-  "dynamicuniverse.planet_config.layers": "Dimensions between space and planet core",
+  "dynamicuniverse.planet_config.prefab": "Planet preset",
+  "dynamicuniverse.planet_config.layers": "Intermediate dimensions",
   "dynamicuniverse.planet_config.transition_factor": "Dimension transition factor (1/n)",
-  "dynamicuniverse.planet_config.core_size": "Planet core size"
+  "dynamicuniverse.planet_config.core_size": "Planet core size",
+  "dynamicuniverse.planet_config.inner_boundary": "Inner: %s",
+  "dynamicuniverse.planet_config.outer_boundary": "Outer: %s",
+  "dynamicuniverse.planet_config.incompatible_transition": "Incompatible transition %s → %s: %s / %s"
 }

@@ -29,6 +29,14 @@ repositories {
     maven { name = 'KotlinForForge'; url = 'https://thedarkcolour.github.io/KotlinForForge/' }
     maven { name = 'RyanHCode'; url = 'https://maven.ryanhcode.dev/releases' }
     exclusiveContent {
+        forRepository { maven { name = 'BlameJared'; url = 'https://maven.blamejared.com' } }
+        filter { includeGroup 'mezz.jei' }
+    }
+    exclusiveContent {
+        forRepository { maven { name = 'CurseMaven'; url = 'https://www.cursemaven.com' } }
+        filter { includeGroup 'curse.maven' }
+    }
+    exclusiveContent {
         forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
         filter { includeGroup 'maven.modrinth' }
     }
@@ -64,6 +72,13 @@ neoForge {
 
 dependencies {
     implementation "thedarkcolour:kotlinforforge-neoforge:${kotlin_for_forge_version}"
+
+    // Client-only quality-of-life mods for the runClient development environment.
+    runtimeOnly "curse.maven:just-zoom-561885:${just_zoom_curseforge_file_id}"
+    // Just Zoom requires Konkrete, but CurseMaven does not expose that relation transitively.
+    runtimeOnly "curse.maven:konkrete-410295:${konkrete_curseforge_file_id}"
+    runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    runtimeOnly "maven.modrinth:1bokaNcj:${xaeros_minimap_modrinth_version_id}"
 
     // Compatibility targets, deliberately optional and never referenced from common code.
     runtimeOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"
