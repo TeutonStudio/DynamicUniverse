@@ -15,6 +15,7 @@ import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
  */
 interface UniverseRuntimeApi {
     fun register(universe: UniverseWorldType)
+    fun clear()
     fun universe(id: String): UniverseWorldType?
     fun universes(): Collection<UniverseWorldType>
 }
@@ -28,6 +29,10 @@ class UniverseRuntimeRegistry : UniverseRuntimeApi {
         }
     }
 
+    override fun clear() {
+        universes.clear()
+    }
+
     override fun universe(id: String): UniverseWorldType? = universes[id]
     override fun universes(): Collection<UniverseWorldType> = universes.values.toList()
 }
@@ -36,6 +41,9 @@ object UniverseRuntime {
     private val registry = UniverseRuntimeRegistry()
 
     fun api(): UniverseRuntimeApi = registry
+
+    /** Called by the server lifecycle before a save is restored or discarded. */
+    fun clear() = registry.clear()
 }
 
 data class RegisteredPlanet(

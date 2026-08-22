@@ -60,6 +60,14 @@ persists both holes; runtime setup installs the immutable geometry manifest and
 the generator-reported planes through `BedrockApertureRuntime.install` after
 the local levels exist.
 
+The complete logical Universe definition and these reported planes are stored
+once per save by `UniverseWorldCreationBridge`. The saved record has an explicit
+format version and contains no client UI state, portal entity UUIDs, or assumed
+Bedrock heights. On server start the bridge refuses to activate a partial set of
+dimensions; it first restores the stored definition, verifies that all declared
+levels are registered, then rebuilds the runtime manifest and installs the
+aperture bridge.
+
 ## Local profiles and the End
 
 Changing a body created from a template immediately materializes a local custom
