@@ -1,6 +1,6 @@
 package de.TeutonStudio.DynamicUniverse.command.service
 
-import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaries
+import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionPosition
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
@@ -12,7 +12,6 @@ import de.TeutonStudio.DynamicUniverse.worldtype.Planet
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionLayer
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionRole
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionStack
-import de.TeutonStudio.DynamicUniverse.worldtype.Star
 import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -27,12 +26,16 @@ class UniverseCommandServicesTest {
         id = "dynamicuniverse:sol",
         universeDimension = space,
         galaxies = listOf(Galaxy("milky_way", listOf(CelestialGroup(
-            id = "sol", kind = CelestialGroupKind.SOLAR_SYSTEM, star = Star("sun"), planets = listOf(Planet(
+            id = "sol", kind = CelestialGroupKind.CLOUD, planets = listOf(Planet(
                 id = "earth", planetCoreSize = 32.0, stacks = listOf(PlanetDimensionStack(
                     id = "main",
                     layersInnerToOuter = listOf(
-                        PlanetDimensionLayer("core", PlanetDimensionRole.PLANET_CORE, core, DimensionScale(8), DimensionBoundaries.BEDROCK_TO_BEDROCK),
-                        PlanetDimensionLayer("sky", PlanetDimensionRole.SKY, sky, boundaries = DimensionBoundaries.BEDROCK_TO_BEDROCK),
+                        PlanetDimensionLayer("core", PlanetDimensionRole.PLANET_CORE, core, DimensionScale(8)),
+                        PlanetDimensionLayer(
+                            "sky", PlanetDimensionRole.SKY, sky,
+                            innerBoundarySurface = BoundarySurface.BEDROCK,
+                            outerBoundarySurface = BoundarySurface.AIR,
+                        ),
                     ),
                     outerToUniverseScale = DimensionScale(2),
                 )),

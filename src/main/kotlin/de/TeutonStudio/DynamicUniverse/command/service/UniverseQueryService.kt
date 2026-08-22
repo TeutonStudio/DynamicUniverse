@@ -72,7 +72,7 @@ class RegistryUniverseQueryService(
             "Below: $lower",
             "Above: $upper",
             "Scale to outer neighbour: $scale",
-            "Boundaries: ${registered.layer.boundaries.inner} -> ${registered.layer.boundaries.outer}",
+            "Boundaries: ${registered.layer.innerBoundarySurface} -> ${registered.layer.outerBoundarySurface}",
         ))
     }
 
