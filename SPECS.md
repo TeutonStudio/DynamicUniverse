@@ -12,6 +12,20 @@ The server owns every celestial body's mass, radius, position, velocity, and res
 
 Planets are created only by administrative server actions. Survival gameplay cannot create celestial bodies, because an added mass changes all current gravitational accelerations and orbital trajectories.
 
+## UniverseSpace runtime
+
+`UniverseSpace` is one unbounded, continuous, directionless three-dimensional coordinate space per runtime host. It has no preferred up, forward, orbit plane, radial origin, world border, or horizontal wrapping. A `UniverseHost` is only the technical owner of this simulation and its `CosmicSpatialObject`s; it does not define galaxy hierarchy, planet dimensions, portals, or gameplay policy.
+
+Every `CosmicSpatialObject` has an authoritative `UniverseKinematicState` (position, velocity, and object-local orientation). `DynamicCosmos` remains the N-body and collision solver, while preserving its original `CelestialBody` API as a compatibility view.
+
+Planet-local coordinates enter UniverseSpace only via `PlanetSpaceBinding`. The binding transforms position and velocity through a positive local scale, object-local orientation, and the moving planet kinematic state; the inverse uses the same state. This preserves stable planet chunks while expressing each planet anchor in the shared continuous space. `UniverseWorldType` can create this bridge, but remains configuration rather than simulation authority.
+
+Clients and local physics may use a finite `SimulationBubble`. When its focus exceeds the rebase threshold, it produces a `BubbleRebase`; local representations receive its translation while global UniverseSpace values remain untouched. Rebasing never creates a Universe boundary or changes an object's authoritative position.
+
+Runtime persistence is an immutable, versioned `UniverseRuntimeSnapshot` containing the technical host identity, space identity, cosmic objects, and planet bindings. A future NeoForge `SavedData` adapter serializes that boundary; no Minecraft persistence class leaks into the pure simulation core.
+
+Sable is connected only through the optional `compat.sable` binding seam. A Sable plot/sublevel position is projected through its bound `CosmicSpatialObject` before any UniverseSpace calculation. The base module references no Sable API class and does not implement Sable sublevel transfer, planet LOD, or portal rendering.
+
 ## Universe world type foundation
 
 `DYNAMIC_UNIVERSE` is a server-side world-type configuration. It represents a vertical hierarchy of galaxies, celestial groups, optional stars, planets, and radial dimension stacks. A celestial group is either a solar system with exactly one star or a cloud with no star.
@@ -38,6 +52,6 @@ Each world layer has a finite square period `L`. X and Z wrap independently, for
 canonical(x) = floorMod(x + L/2, L) - L/2
 ```
 
-Crossing east returns on the west edge; crossing north returns on the south edge. Velocity and facing are preserved. The topology core has no portal or renderer dependency.
+Crossing east returns on the west edge; crossing north returns on the south edge. Velocity and facing are preserved. This topology applies to configured local world layers only; it is never applied to `UniverseSpace`. The topology core has no portal or renderer dependency.
 
 Immersive Portals may render the seam as a continuous horizontal connection when present. Distant Horizons may consume the same canonical period for LOD adjacency. Both integrations are optional adapters: no client class or external API is reachable from common/server code.

@@ -11,4 +11,4 @@ Only these external mod dependencies are declared:
 | Sable | Physics adapter | Optional |
 | Distant Horizons | Horizontal LOD adapter | Optional, no hard artifact dependency |
 
-Dynamic Universe does not depend on TerrArchitecture, Galacticraft, DynamicDimensions, Create, or Distant Horizons at compile/runtime by default. Sable is compile-only for optional API adapters; an installation that uses the adapter must provide the Sable mod itself.
+Dynamic Universe does not depend on TerrArchitecture, Galacticraft, DynamicDimensions, Create, or Distant Horizons at compile/runtime by default. Sable is compile-only for the optional sublevel binding boundary; an installation that supplies a direct Sable adapter must provide the Sable mod itself. The shared UniverseSpace runtime does not reference Sable classes, and it does not relocate Sable sublevels between Minecraft levels.
