@@ -71,6 +71,10 @@ class UniverseWorldTypeTest {
         assertEquals(DimensionConnectionKind.UNIVERSE_TRANSITION, graph.routesFrom(surface).single { it.target == universe }.kind)
         assertEquals(DimensionBoundaryFace.UPPER, coreToMantle.sourceBoundaryFace)
         assertEquals(DimensionBoundaryFace.LOWER, coreToMantle.targetBoundaryFace)
+        val portal = requireNotNull(worldType.localEuclideanPortalGraph().portalAt(core, DimensionBoundaryFace.UPPER))
+        assertEquals(coreToMantle.target, portal.target.dimension)
+        assertEquals(DimensionBoundaryFace.LOWER, portal.target.face)
+        assertEquals(coreToMantle.boundarySurface, portal.boundary)
         assertEquals(VerticalLoop.BOTH_DIRECTIONS, worldType.isolatedUniverses.single { it.id == "end" }.verticalLoop)
     }
 }

@@ -5,6 +5,9 @@ import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionGraph
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
 import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
+import de.TeutonStudio.DynamicUniverse.dimension.LocalEuclideanPortal
+import de.TeutonStudio.DynamicUniverse.dimension.LocalEuclideanPortalGraph
+import de.TeutonStudio.DynamicUniverse.dimension.LocalPortalEndpoint
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionKind
 
 /** The configurable Universe world type. It has no client or portal-mod dependency. */
@@ -27,6 +30,24 @@ data class UniverseWorldType(
     fun connectionGraph(): DimensionConnectionGraph = DimensionConnectionGraph(
         galaxies.flatMap { galaxy -> galaxy.groups }
             .flatMap { group -> group.connectionsTo(universeDimension) },
+    )
+
+    /**
+     * One directed, horizontal portal specification for each physical stack boundary.
+     * The seamless sky-to-Universe transition deliberately has no local portal surface.
+     */
+    fun localEuclideanPortalGraph(): LocalEuclideanPortalGraph = LocalEuclideanPortalGraph(
+        connectionGraph().allRoutes()
+            .filter { it.kind == DimensionConnectionKind.RADIAL_BOUNDARY }
+            .map { route ->
+                LocalEuclideanPortal(
+                    id = route.id,
+                    source = LocalPortalEndpoint(route.source, route.sourceBoundaryFace),
+                    target = LocalPortalEndpoint(route.target, route.targetBoundaryFace),
+                    boundary = route.boundarySurface,
+                    scale = route.scale,
+                )
+            },
     )
 }
 
