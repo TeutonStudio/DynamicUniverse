@@ -20,8 +20,6 @@ import net.minecraft.world.phys.Vec3
 import qouteall.imm_ptl.core.api.PortalAPI
 import qouteall.imm_ptl.core.portal.Portal
 import qouteall.q_misc_util.my_util.DQuaternion
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Materializes each aperture cell independently. This deliberately favors exact arbitrary shapes
@@ -29,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap
  * persisted aperture model.
  */
 class ImmersivePortalApertureAdapter : AperturePortalAdapter {
-    private val portalIdsByAperture = ConcurrentHashMap<String, Set<UUID>>()
     private val coreResolver = PlanetCoreProjectionResolver()
 
     override fun rebuildPaired(
@@ -46,7 +43,6 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         val targetPlane = planes.singleOrNull { it.dimension == connection.target && it.face == connection.targetBoundaryFace } ?: return
         val sourceOrientation = boundaryOrientation(connection.sourceBoundaryFace)
         val targetOrientation = boundaryOrientation(connection.targetBoundaryFace)
-        val ids = linkedSetOf<UUID>()
 
         aperture.shape.cells.forEach { cell ->
             val sourceCenter = Vec3(
@@ -59,7 +55,7 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
                 targetPlane.y + 0.5,
                 aperture.targetAnchor.z + cell.dz + 0.5,
             )
-            ids += materializeCellPair(
+            materializeCellPair(
                 sourceLevel,
                 targetLevel,
                 sourceCenter,
@@ -69,7 +65,6 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
                 aperture.id,
             )
         }
-        portalIdsByAperture[aperture.id] = ids
     }
 
     override fun rebuildCore(
@@ -85,7 +80,6 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         val coreLevel = server.level(geometry.coreDimension) ?: return
         val deepPlane = planes.singleOrNull { it.dimension == aperture.deepDimension && it.face == aperture.deepFace } ?: return
         val sourceOrientation = boundaryOrientation(aperture.deepFace)
-        val ids = linkedSetOf<UUID>()
 
         projection.mapping.forEach { (cell, coreCell) ->
             val targetBlock = coreResolver.blockPosition(geometry, coreCell) ?: return@forEach
@@ -96,7 +90,7 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
             )
             val targetCenter = Vec3(targetBlock.x + 0.5, targetBlock.y + 0.5, targetBlock.z + 0.5)
             val targetOrientation = coreOrientation(coreCell.face, projection.rotationQuarterTurns)
-            ids += materializeCellPair(
+            materializeCellPair(
                 deepLevel,
                 coreLevel,
                 sourceCenter,
@@ -106,7 +100,6 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
                 aperture.id,
             )
         }
-        portalIdsByAperture[aperture.id] = ids
     }
 
     private fun materializeCellPair(
@@ -117,7 +110,7 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         sourceOrientation: DQuaternion,
         targetOrientation: DQuaternion,
         apertureId: String,
-    ): Set<UUID> {
+    ) {
         val forwardRotation = targetOrientation.hamiltonProduct(sourceOrientation.getConjugated())
         val reverseRotation = sourceOrientation.hamiltonProduct(targetOrientation.getConjugated())
         val forward = Portal(Portal.ENTITY_TYPE, sourceLevel)
@@ -131,14 +124,16 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         PortalAPI.setPortalTransformation(reverse, sourceLevel.dimension(), sourceCenter, reverseRotation, 1.0)
         reverse.portalTag = "dynamicuniverse:aperture:$apertureId:reverse"
         PortalAPI.spawnServerEntity(reverse)
-        return setOf(forward.uuid, reverse.uuid)
     }
 
     private fun removeExisting(server: MinecraftServer, apertureId: String) {
-        val ids = portalIdsByAperture.remove(apertureId).orEmpty()
-        if (ids.isEmpty()) return
+        val forwardTag = "dynamicuniverse:aperture:$apertureId"
+        val reverseTag = "$forwardTag:reverse"
         server.allLevels.forEach { level ->
-            ids.forEach { id -> level.getEntity(id)?.discard() }
+            level.getAllEntities()
+                .filterIsInstance<Portal>()
+                .filter { portal -> portal.portalTag == forwardTag || portal.portalTag == reverseTag }
+                .forEach(Portal::discard)
         }
     }
 
