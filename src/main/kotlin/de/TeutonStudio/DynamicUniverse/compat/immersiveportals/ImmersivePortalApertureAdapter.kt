@@ -20,6 +20,8 @@ import net.minecraft.world.phys.Vec3
 import qouteall.imm_ptl.core.api.PortalAPI
 import qouteall.imm_ptl.core.portal.Portal
 import qouteall.q_misc_util.my_util.DQuaternion
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Materializes each aperture cell independently. This deliberately favors exact arbitrary shapes
@@ -111,8 +113,8 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         targetOrientation: DQuaternion,
         apertureId: String,
     ) {
-        val forwardRotation = targetOrientation.hamiltonProduct(sourceOrientation.getConjugated())
-        val reverseRotation = sourceOrientation.hamiltonProduct(targetOrientation.getConjugated())
+        val forwardRotation = multiply(targetOrientation, conjugate(sourceOrientation))
+        val reverseRotation = multiply(sourceOrientation, conjugate(targetOrientation))
         val forward = Portal(Portal.ENTITY_TYPE, sourceLevel)
         PortalAPI.setPortalPositionOrientationAndSize(forward, sourceCenter, sourceOrientation, 1.0, 1.0)
         PortalAPI.setPortalTransformation(forward, targetLevel.dimension(), targetCenter, forwardRotation, 1.0)
@@ -138,23 +140,38 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
     }
 
     private fun boundaryOrientation(face: DimensionBoundaryFace): DQuaternion = when (face) {
-        DimensionBoundaryFace.LOWER -> DQuaternion.rotateByDegrees(Vec3(1.0, 0.0, 0.0), 90.0)
-        DimensionBoundaryFace.UPPER -> DQuaternion.rotateByDegrees(Vec3(1.0, 0.0, 0.0), -90.0)
+        DimensionBoundaryFace.LOWER -> axisAngle(1.0, 0.0, 0.0, 90.0)
+        DimensionBoundaryFace.UPPER -> axisAngle(1.0, 0.0, 0.0, -90.0)
     }
 
     private fun coreOrientation(face: CoreShellFace, quarterTurns: Int): DQuaternion {
         val faceRotation = when (face) {
             CoreShellFace.POSITIVE_Z -> DQuaternion.identity
-            CoreShellFace.NEGATIVE_Z -> DQuaternion.rotateByDegrees(Vec3(0.0, 1.0, 0.0), 180.0)
-            CoreShellFace.POSITIVE_X -> DQuaternion.rotateByDegrees(Vec3(0.0, 1.0, 0.0), 90.0)
-            CoreShellFace.NEGATIVE_X -> DQuaternion.rotateByDegrees(Vec3(0.0, 1.0, 0.0), -90.0)
-            CoreShellFace.POSITIVE_Y -> DQuaternion.rotateByDegrees(Vec3(1.0, 0.0, 0.0), -90.0)
-            CoreShellFace.NEGATIVE_Y -> DQuaternion.rotateByDegrees(Vec3(1.0, 0.0, 0.0), 90.0)
+            CoreShellFace.NEGATIVE_Z -> axisAngle(0.0, 1.0, 0.0, 180.0)
+            CoreShellFace.POSITIVE_X -> axisAngle(0.0, 1.0, 0.0, 90.0)
+            CoreShellFace.NEGATIVE_X -> axisAngle(0.0, 1.0, 0.0, -90.0)
+            CoreShellFace.POSITIVE_Y -> axisAngle(1.0, 0.0, 0.0, -90.0)
+            CoreShellFace.NEGATIVE_Y -> axisAngle(1.0, 0.0, 0.0, 90.0)
         }
-        val inPlane = DQuaternion.rotateByDegrees(Vec3(0.0, 0.0, 1.0), quarterTurns * 90.0)
-        return faceRotation.hamiltonProduct(inPlane)
+        val inPlane = axisAngle(0.0, 0.0, 1.0, quarterTurns * 90.0)
+        return multiply(faceRotation, inPlane)
     }
 }
+
+private fun axisAngle(x: Double, y: Double, z: Double, degrees: Double): DQuaternion {
+    val half = Math.toRadians(degrees) / 2.0
+    val sine = sin(half)
+    return DQuaternion(x * sine, y * sine, z * sine, cos(half))
+}
+
+private fun conjugate(q: DQuaternion): DQuaternion = DQuaternion(-q.x, -q.y, -q.z, q.w)
+
+private fun multiply(a: DQuaternion, b: DQuaternion): DQuaternion = DQuaternion(
+    a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+    a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+)
 
 private fun MinecraftServer.level(dimension: DimensionId): ServerLevel? {
     val location = ResourceLocation.tryParse(dimension.value) ?: return null
