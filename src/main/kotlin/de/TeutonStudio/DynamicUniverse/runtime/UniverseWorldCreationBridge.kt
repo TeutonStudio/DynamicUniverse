@@ -24,7 +24,7 @@ object UniverseWorldCreationBridge {
         requireInstalledLevels(server, definition.worldType)
         val saveData = UniverseSaveData.createForServer(server)
         saveData.install(definition)
-        activate(definition)
+        activate(server, definition)
         return definition
     }
 
@@ -37,7 +37,7 @@ object UniverseWorldCreationBridge {
             return false
         }
         requireInstalledLevels(server, definition.worldType)
-        activate(definition)
+        activate(server, definition)
         return true
     }
 
@@ -47,11 +47,12 @@ object UniverseWorldCreationBridge {
         UniverseTransitionRuntime.clear()
     }
 
-    private fun activate(definition: PersistedUniverseDefinition) {
+    private fun activate(server: MinecraftServer, definition: PersistedUniverseDefinition) {
         val manifest = UniverseGeometryCompiler.compile(definition.worldType)
         UniverseRuntime.clear()
         UniverseRuntime.api().register(definition.worldType)
         BedrockApertureRuntime.install(manifest, definition.bedrockPlanes)
+        BedrockApertureRuntime.reconcile(server)
         UniverseTransitionRuntime.install(manifest)
     }
 
