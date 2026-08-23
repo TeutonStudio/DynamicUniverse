@@ -69,23 +69,23 @@ class BoundaryApertureSaveData private constructor(
 }
 
 private fun PairedBoundaryAperture.toTag(): CompoundTag = CompoundTag().apply {
-    putString("id", id)
-    putString("connectionId", connectionId)
-    putLong("createdSequence", createdSequence)
-    put("sourceAnchor", sourceAnchor.toTag())
-    put("targetAnchor", targetAnchor.toTag())
-    put("shape", shape.toTag())
+    putString("id", this@toTag.id)
+    putString("connectionId", this@toTag.connectionId)
+    putLong("createdSequence", this@toTag.createdSequence)
+    put("sourceAnchor", this@toTag.sourceAnchor.toTag())
+    put("targetAnchor", this@toTag.targetAnchor.toTag())
+    put("shape", this@toTag.shape.toTag())
 }
 
 private fun CoreBoundaryAperture.toTag(): CompoundTag = CompoundTag().apply {
-    putString("id", id)
-    putString("connectionId", connectionId)
-    putLong("createdSequence", createdSequence)
-    putString("planetId", planetId)
-    putString("deepDimension", deepDimension.value)
-    putString("deepFace", deepFace.name)
-    put("deepAnchor", deepAnchor.toTag())
-    put("shape", shape.toTag())
+    putString("id", this@toTag.id)
+    putString("connectionId", this@toTag.connectionId)
+    putLong("createdSequence", this@toTag.createdSequence)
+    putString("planetId", this@toTag.planetId)
+    putString("deepDimension", this@toTag.deepDimension.value)
+    putString("deepFace", this@toTag.deepFace.name)
+    put("deepAnchor", this@toTag.deepAnchor.toTag())
+    put("shape", this@toTag.shape.toTag())
 }
 
 private fun CompoundTag.toPairedAperture() = PairedBoundaryAperture(
@@ -109,8 +109,8 @@ private fun CompoundTag.toCoreAperture() = CoreBoundaryAperture(
 )
 
 private fun HorizontalPosition.toTag(): CompoundTag = CompoundTag().apply {
-    putLong("x", x)
-    putLong("z", z)
+    putLong("x", this@toTag.x)
+    putLong("z", this@toTag.z)
 }
 
 private fun CompoundTag.toHorizontalPosition() = HorizontalPosition(getLong("x"), getLong("z"))
