@@ -26,6 +26,13 @@ object AperturePortalRuntime {
     @Volatile
     private var adapter: AperturePortalAdapter? = null
 
+    @Volatile
+    private var planes: List<BedrockBoundaryPlane> = emptyList()
+
+    fun install(planes: Collection<BedrockBoundaryPlane>) {
+        this.planes = planes.toList()
+    }
+
     private fun adapter(): AperturePortalAdapter? {
         adapter?.let { return it }
         if (!ModList.get().isLoaded("immersive_portals_core")) return null
@@ -39,12 +46,12 @@ object AperturePortalRuntime {
 
     fun clear() {
         adapter = null
+        planes = emptyList()
     }
 
     fun rebuildPaired(
         server: MinecraftServer,
         manifest: UniverseGeometryManifest,
-        planes: Collection<BedrockBoundaryPlane>,
         aperture: PairedBoundaryAperture,
     ) {
         adapter()?.rebuildPaired(server, manifest, planes, aperture)
@@ -53,7 +60,6 @@ object AperturePortalRuntime {
     fun rebuildCore(
         server: MinecraftServer,
         manifest: UniverseGeometryManifest,
-        planes: Collection<BedrockBoundaryPlane>,
         geometry: PlanetCoreGeometry,
         aperture: CoreBoundaryAperture,
         projection: CoreApertureProjection,
