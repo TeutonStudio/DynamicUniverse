@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.Blocks
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.neoforge.event.level.BlockEvent
+import net.neoforged.neoforge.event.level.ExplosionEvent
 
 /** Runtime owner for dynamic Bedrock apertures in the active Universe save. */
 object BedrockApertureRuntime {
@@ -54,8 +55,8 @@ object BedrockApertureRuntime {
 }
 
 /**
- * Boundary Bedrock is handled as one server-side transaction. The vanilla break is cancelled
- * after a valid plan has been built so source and counterpart can never diverge halfway through.
+ * Boundary Bedrock is handled as one server-side transaction. Player breaks and explosion block
+ * lists use the same preparation path, so the source and counterpart can never diverge halfway.
  */
 @EventBusSubscriber(modid = DynamicUniverse.MOD_ID)
 object BedrockApertureBreakListener {
@@ -73,6 +74,25 @@ object BedrockApertureBreakListener {
                 event.isCanceled = true
                 if (!preparation.commit()) {
                     event.player.sendSystemMessage(Component.literal("DynamicUniverse: Aperture transaction rolled back."))
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    fun onExplosionDetonate(event: ExplosionEvent.Detonate) {
+        val level = event.level as? ServerLevel ?: return
+        val iterator = event.affectedBlocks.listIterator()
+        while (iterator.hasNext()) {
+            val position = iterator.next()
+            if (!level.getBlockState(position).`is`(Blocks.BEDROCK)) continue
+            when (val preparation = BedrockApertureRuntime.prepareBedrockBreak(level, position)) {
+                BedrockBreakPreparation.Ignored -> Unit
+                is BedrockBreakPreparation.Rejected -> iterator.remove()
+                is BedrockBreakPreparation.Accepted -> {
+                    // Remove it from vanilla explosion processing. The transaction owns this block now.
+                    iterator.remove()
+                    preparation.commit()
                 }
             }
         }
