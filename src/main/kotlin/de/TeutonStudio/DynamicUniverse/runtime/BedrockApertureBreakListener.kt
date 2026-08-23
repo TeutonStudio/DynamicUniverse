@@ -29,6 +29,7 @@ object BedrockApertureRuntime {
         bridge?.reconcileCoreProjections(server)
         val activeManifest = manifest ?: return
         val save = BoundaryApertureSaveData.find(server) ?: return
+        prunePortals(server, save)
         save.pairedApertures().forEach { aperture ->
             AperturePortalRuntime.rebuildPaired(server, activeManifest, aperture)
         }
@@ -42,6 +43,19 @@ object BedrockApertureRuntime {
                 }
             }
         }
+    }
+
+    fun prunePortals(server: MinecraftServer) {
+        val save = BoundaryApertureSaveData.find(server) ?: return
+        prunePortals(server, save)
+    }
+
+    private fun prunePortals(server: MinecraftServer, save: BoundaryApertureSaveData) {
+        val validIds = buildSet {
+            save.pairedApertures().mapTo(this) { it.id }
+            save.coreApertures().mapTo(this) { it.id }
+        }
+        AperturePortalRuntime.prune(server, validIds)
     }
 
     fun clear() {
@@ -72,7 +86,9 @@ object BedrockApertureBreakListener {
             }
             is BedrockBreakPreparation.Accepted -> {
                 event.isCanceled = true
-                if (!preparation.commit()) {
+                if (preparation.commit()) {
+                    BedrockApertureRuntime.prunePortals(level.server)
+                } else {
                     event.player.sendSystemMessage(Component.literal("DynamicUniverse: Aperture transaction rolled back."))
                 }
             }
@@ -92,7 +108,7 @@ object BedrockApertureBreakListener {
                 is BedrockBreakPreparation.Accepted -> {
                     // Remove it from vanilla explosion processing. The transaction owns this block now.
                     iterator.remove()
-                    preparation.commit()
+                    if (preparation.commit()) BedrockApertureRuntime.prunePortals(level.server)
                 }
             }
         }
