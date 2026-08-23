@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/dynamic-bedrock-apertures
+  pull_request:
+    branches:
+      - master
 
 jobs:
   test:
