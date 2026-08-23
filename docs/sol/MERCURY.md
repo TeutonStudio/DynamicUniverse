@@ -1,10 +1,10 @@
-# Merkur
+# Mercurius
 
 Status: **Planetprofil-Plan**
 
 ## Zielbild
 
-Merkur soll sich wie ein fast atmosphärenloser, stark verkraterter Gesteinsplanet mit ungewöhnlich großem metallischem Kern spielen. Das zentrale Gameplay entsteht aus extremer Sonneneinstrahlung, sehr starken Temperaturunterschieden zwischen Tag und Nacht, geringer Gravitation und einer nur hauchdünnen Exosphäre.
+Mercurius soll sich wie ein fast atmosphärenloser, stark verkraterter Gesteinsplanet mit ungewöhnlich großem metallischem Kern spielen. Das zentrale Gameplay entsteht aus extremer Sonneneinstrahlung, sehr starken Temperaturunterschieden zwischen Tag und Nacht, geringer Gravitation und einer nur hauchdünnen Exosphäre.
 
 ## Planetparameter
 
@@ -40,7 +40,7 @@ Von innen nach außen:
 
 - Trockene, kompakte Gesteinsschale.
 - Große erkaltete Magmakörper und Metalladern.
-- Keine Nether-Kopie. Der Merkur soll nicht lediglich Terra mit anderer Textur sein.
+- Keine Nether-Kopie. Mercurius soll nicht lediglich Terra mit anderer Textur sein.
 
 ### Oberfläche
 
@@ -94,6 +94,6 @@ Für eine erste Version reicht das bestehende CORE/SHELL/SURFACE/SKY-Modell. Zus
 
 ## Offene Entscheidungen
 
-- Soll der sehr lange reale Merkur-Tag spielmechanisch stark verkürzt werden oder direkt aus der Orbit-/Rotationssimulation folgen?
+- Soll der sehr lange reale Mercurius-Tag spielmechanisch stark verkürzt werden oder direkt aus der Orbit-/Rotationssimulation folgen?
 - Soll Wassereis nur in vorab berechneten Polregionen oder dynamisch anhand dauerhafter Verschattung entstehen?
 - Wie stark soll Wärme in Blöcke, Contraptions und Sable-Sublevels übertragen werden?

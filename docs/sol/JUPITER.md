@@ -1,10 +1,10 @@
-# Jupiter
+# Iuppiter
 
 Status: **Planetprofil-Plan / benötigt Gasriesen-Erweiterung**
 
 ## Zielbild
 
-Jupiter soll als echter Gasriese funktionieren: keine feste Oberfläche, sondern ein kontinuierlicher Übergang von dünner oberer Atmosphäre über immer dichtere und heißere Wasserstoffschichten bis zu metallischem Wasserstoff und einem tiefen Kernbereich. Der Spieler kann also nicht einfach „auf Jupiter landen“. Er kann in die Atmosphäre eintauchen, schweben, fliegen oder so lange fallen, bis Druck und Temperatur jede ungeschützte Konstruktion in eine schlechte technische Anekdote verwandeln.
+Iuppiter soll als echter Gasriese funktionieren: keine feste Oberfläche, sondern ein kontinuierlicher Übergang von dünner oberer Atmosphäre über immer dichtere und heißere Wasserstoffschichten bis zu metallischem Wasserstoff und einem tiefen Kernbereich. Der Spieler kann also nicht einfach „auf Iuppiter landen“. Er kann in die Atmosphäre eintauchen, schweben, fliegen oder so lange fallen, bis Druck und Temperatur jede ungeschützte Konstruktion in eine schlechte technische Anekdote verwandeln.
 
 ## Planetparameter
 
@@ -33,7 +33,7 @@ Von innen nach außen:
 
 ## Notwendige Modelländerung: ENVELOPE
 
-Die aktuelle Boundary-Klassifikation würde `BEDROCK -> AIR` automatisch als `SURFACE` behandeln. Für Jupiter ist dieselbe Geometrie nur ein technischer radialer Übergang und darf keine begehbare Oberfläche oder Oberflächenlogik implizieren.
+Die aktuelle Boundary-Klassifikation würde `BEDROCK -> AIR` automatisch als `SURFACE` behandeln. Für Iuppiter ist dieselbe Geometrie nur ein technischer radialer Übergang und darf keine begehbare Oberfläche oder Oberflächenlogik implizieren.
 
 Geplant ist deshalb:
 
@@ -105,7 +105,7 @@ Der Große Rote Fleck und andere langlebige Wirbel sind makroskopische Wetterobj
 
 ## Erforderliche Technik
 
-Jupiter ist der erste Planet, der zwingend braucht:
+Iuppiter ist der erste Planet, der zwingend braucht:
 
 - `ENVELOPE`-Semantik oder gleichwertige Trennung von Boundary-Geometrie und Layer-Rolle;
 - druck-/dichteabhängige Atmosphärenphysik;
@@ -119,4 +119,4 @@ Jupiter ist der erste Planet, der zwingend braucht:
 - Wie tief darf ein Spieler praktisch gelangen, bevor Materialgrenzen den Fortschritt blockieren?
 - Wird metallischer Wasserstoff als abbaubares Fluid, Prozesszustand oder nur als Umweltphase dargestellt?
 - Wie werden langlebige Stürme persistent gespeichert und mit der rotierenden Atmosphäre bewegt?
-- Soll die starke Magnetosphäre bereits in der ersten Jupiter-Version Gameplay-Relevanz erhalten?
+- Soll die starke Magnetosphäre bereits in der ersten Iuppiter-Version Gameplay-Relevanz erhalten?

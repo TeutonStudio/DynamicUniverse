@@ -1,10 +1,10 @@
-# Saturn
+# Saturnus
 
 Status: **Planetprofil-Plan / benötigt Gasriesen-Erweiterung**
 
 ## Zielbild
 
-Saturn soll sich als leichterer, stark abgeplatteter Gasriese mit ausgeprägtem Ringsystem spielen. Wie Jupiter besitzt er keine feste Oberfläche. Sein Profil soll aber nicht bloß „Jupiter mit gelberem Shader“ sein: geringere Dichte, andere Wolkenstruktur, auffällige Ringumgebung und der polare Hexagon-Sturm geben ihm eigene Mechaniken und Ziele.
+Saturnus soll sich als leichterer, stark abgeplatteter Gasriese mit ausgeprägtem Ringsystem spielen. Wie Iuppiter besitzt er keine feste Oberfläche. Sein Profil soll aber nicht bloß „Iuppiter mit gelberem Shader“ sein: geringere Dichte, andere Wolkenstruktur, auffällige Ringumgebung und der polare Hexagon-Sturm geben ihm eigene Mechaniken und Ziele.
 
 ## Planetparameter
 
@@ -32,7 +32,7 @@ Von innen nach außen:
 | 3 | `dynamicuniverse:saturn_deep_atmosphere` | ENVELOPE | `BEDROCK -> AIR` | tiefe befliegbare Atmosphäre ohne feste Oberfläche |
 | 4 | `dynamicuniverse:saturn_atmosphere` | SKY | `AIR -> AIR` | Wolken, Stürme und Übergang in `UniverseSpace` |
 
-Wie bei Jupiter ist `ENVELOPE` eine semantische Rolle. Die Boundary-Geometrie kann `BEDROCK -> AIR` bleiben, darf aber nicht als begehbare feste Oberfläche interpretiert werden.
+Wie bei Iuppiter ist `ENVELOPE` eine semantische Rolle. Die Boundary-Geometrie kann `BEDROCK -> AIR` bleiben, darf aber nicht als begehbare feste Oberfläche interpretiert werden.
 
 ## Innere Schichten
 
@@ -62,17 +62,17 @@ Die Ringe gehören **nicht** in den radialen Planetendimensionsstack.
 
 Geplant:
 
-- eigenes `CosmicSpatialObject` beziehungsweise Ringobjekt, an Saturn gebunden;
+- eigenes `CosmicSpatialObject` beziehungsweise Ringobjekt, an Saturnus gebunden;
 - Partikel-/LOD-Darstellung aus der Ferne;
 - lokale Sable-/Sublevel-Cluster oder physische Ringfragmente bei Annäherung;
 - überwiegend Wassereis, dazu Gesteins-/Staubanteile;
 - Lücken und Ringbänder als echte räumliche Struktur, nicht als flache Dekortextur.
 
-So kann man durch die Ringe fliegen, ohne Saturn selbst topologisch in eine Scheibe zu verwandeln. Das wäre zwar bemerkenswert, aber aus den falschen Gründen.
+So kann man durch die Ringe fliegen, ohne Saturnus selbst topologisch in eine Scheibe zu verwandeln. Das wäre zwar bemerkenswert, aber aus den falschen Gründen.
 
 ## Umweltmechaniken
 
-- Gravitation an der Wolkenoberkante näher an Terra als bei Jupiter;
+- Gravitation an der Wolkenoberkante näher an Terra als bei Iuppiter;
 - dennoch zunehmender Druck und Temperatur nach innen;
 - starke Winde;
 - Auftrieb und Atmosphärenflug;
@@ -106,7 +106,7 @@ Ringe:
 
 ## Erforderliche Technik
 
-- gleiche `ENVELOPE`-/Gasriesen-Unterstützung wie Jupiter;
+- gleiche `ENVELOPE`-/Gasriesen-Unterstützung wie Iuppiter;
 - ringförmige `CosmicSpatialObject`-Geometrie;
 - Ring-LOD und lokale Materialisierung;
 - Ring-/Planetenschatten;

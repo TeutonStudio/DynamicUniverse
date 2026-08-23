@@ -1,10 +1,10 @@
-# Neptun
+# Neptunus
 
 Status: **Planetprofil-Plan / benötigt Eisriesen-Erweiterung**
 
 ## Zielbild
 
-Neptun soll als dunklerer, dynamischerer Eisriese mit sehr starken Winden, Methanatmosphäre und tiefem Hochdruckmantel funktionieren. Wie Uranus besitzt er keine feste Oberfläche. Im Gameplay liegt sein Schwerpunkt stärker auf extremer Atmosphärendynamik, tiefen Druckzonen und schwer erreichbaren Hochdruckressourcen.
+Neptunus soll als dunklerer, dynamischerer Eisriese mit sehr starken Winden, Methanatmosphäre und tiefem Hochdruckmantel funktionieren. Wie Uranus besitzt er keine feste Oberfläche. Im Gameplay liegt sein Schwerpunkt stärker auf extremer Atmosphärendynamik, tiefen Druckzonen und schwer erreichbaren Hochdruckressourcen.
 
 ## Planetparameter
 
@@ -51,7 +51,7 @@ Eine Atmosphärendimension mit mehreren Höhenzonen:
 4. tiefere Wolken aus weiteren kondensierbaren Stoffen;
 5. Übergang zur dichten Envelope.
 
-Neptun erhält im Vergleich zu Uranus höhere Windgeschwindigkeiten und stärkere großräumige Wetterdynamik.
+Neptunus erhält im Vergleich zu Uranus höhere Windgeschwindigkeiten und stärkere großräumige Wetterdynamik.
 
 ## Umweltmechaniken
 
@@ -110,4 +110,4 @@ Zusätzlich zur allgemeinen Gas-/Eisriesen-Unterstützung:
 - Wie stark darf Wind Fahrzeuge versetzen, bevor Gameplay nur noch aus unfreiwilligem Tourismus besteht?
 - Werden Sturmzellen rein atmosphärisch simuliert oder als persistente planetare Wetterobjekte gespeichert?
 - Welche Hochdruckchemie wird tatsächlich spielmechanisch zugänglich?
-- Wie wird Neptun visuell klar von Uranus unterschieden, ohne lediglich die Farbsättigung hochzudrehen?
+- Wie wird Neptunus visuell klar von Uranus unterschieden, ohne lediglich die Farbsättigung hochzudrehen?
