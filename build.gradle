@@ -79,27 +79,27 @@ dependencies {
     // Just Zoom requires Konkrete, but CurseMaven does not expose that relation transitively.
     runtimeOnly "curse.maven:konkrete-410295:${konkrete_curseforge_file_id}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    runtimeOnly "maven.modrinth:1bokaNcj:${xaeros_minimap_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:1bokaNcj:${xaeros_minimap_modrinth_maven_version}"
     // Full-screen world map for runClient; it is never bundled with the published mod.
-    runtimeOnly "maven.modrinth:NcUtCpym:${xaeros_world_map_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:NcUtCpym:${xaeros_world_map_modrinth_maven_version}"
     // Targeted block/entity inspection; it also integrates with the existing JEI runtime.
-    runtimeOnly "maven.modrinth:nvQzSEkH:${jade_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:nvQzSEkH:${jade_modrinth_maven_version}"
     // Client-side ItemStack and looked-at entity SNBT inspection without editing save data.
-    runtimeOnly "maven.modrinth:w0xJ0EWR:${nbt_viewer_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:w0xJ0EWR:${nbt_viewer_modrinth_maven_version}"
     // Tick, heap, and CPU profiling through /spark for client and integrated-server analysis.
-    runtimeOnly "maven.modrinth:l6YH9Als:${spark_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:l6YH9Als:${spark_modrinth_maven_version}"
     // Readable F3 HUD for dimension, chunk, entity, and client-runtime state.
-    runtimeOnly "maven.modrinth:8shC1gFX:${betterf3_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:8shC1gFX:${betterf3_modrinth_maven_version}"
 
     // Optional Distant Horizons API/runtime target. Common code must remain loadable without it.
-    compileOnly "maven.modrinth:uCdwusMi:${distant_horizons_modrinth_version_id}"
-    runtimeOnly "maven.modrinth:uCdwusMi:${distant_horizons_modrinth_version_id}"
+    compileOnly "maven.modrinth:uCdwusMi:${distant_horizons_modrinth_maven_version}"
+    runtimeOnly "maven.modrinth:uCdwusMi:${distant_horizons_modrinth_maven_version}"
 
     // Compatibility targets, deliberately optional and never referenced from common code.
-    compileOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"
-    runtimeOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"
+    compileOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_maven_version}"
+    runtimeOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_maven_version}"
     // Required by the selected Immersive Portals runtime artifact.
-    runtimeOnly "maven.modrinth:9s6osm5g:${cloth_config_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:9s6osm5g:${cloth_config_modrinth_maven_version}"
     compileOnly "dev.ryanhcode.sable:sable-common-${minecraft_version}:${sable_version}"
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
