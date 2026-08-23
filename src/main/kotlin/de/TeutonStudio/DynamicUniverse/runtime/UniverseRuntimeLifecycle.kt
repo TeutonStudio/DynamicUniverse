@@ -11,11 +11,15 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent
 object UniverseRuntimeLifecycle {
     @SubscribeEvent
     fun onServerStarted(event: ServerStartedEvent) {
-        UniverseWorldCreationBridge.restore(event.server)
+        if (UniverseWorldCreationBridge.restore(event.server)) return
+        (UniverseWorldCreationSession.consumeFor(event.server) ?: UniversePresetBootstrap.defaultPlanIfInstalled(event.server))?.let { plan ->
+            UniverseWorldCreationBridge.create(event.server, plan.worldType, plan.bedrockPlanes)
+        }
     }
 
     @SubscribeEvent
     fun onServerStopping(event: ServerStoppingEvent) {
         UniverseWorldCreationBridge.clear()
+        UniverseWorldCreationSession.clear()
     }
 }

@@ -43,30 +43,66 @@ The outermost sky layer connects to `UniverseSpace` as a seamless transition
 for Creative flight and complete Sable vehicles. Coordinate selection and
 physical object scale stay separate: the latter remains 1:1.
 
-## Bedrock apertures
+## Dynamic Bedrock apertures
 
-A Bedrock-to-Bedrock boundary is an eligible radial aperture. Its generator
-adapter records the exact lower or upper Bedrock plane for each local
-dimension. When a player breaks Bedrock exactly on such a registered plane,
-the server maps the horizontal coordinate through the stack scale and removes
-the corresponding Bedrock block from the adjacent level as well. The source
-break then completes normally, leaving one matching hole on both sides.
+A Bedrock-to-Bedrock boundary is an eligible dynamic aperture. Generator
+adapters still report the exact lower or upper Bedrock plane; the runtime then
+uses the immutable `DimensionConnection` only to choose the opposite endpoint
+of a **new** opening.
 
-This rule is intentionally narrow: ordinary Bedrock elsewhere, AIR boundaries,
-the core's missing lower boundary, and the sky-to-Universe transition never
-open an aperture. If the mapped target is no longer Bedrock, the source break
-is left alone rather than overwriting player changes. The generated chunk data
-persists both holes; runtime setup installs the immutable geometry manifest and
-the generator-reported planes through `BedrockApertureRuntime.install` after
-the local levels exist.
+The first destroyed boundary block establishes two anchors. The configured
+stack scale maps that first source anchor to the other dimension. Once the
+opening exists, every further cell is mapped **locally 1:1** as an offset from
+those anchors. A factor of eight therefore maps a first Nether cell `10` to an
+outer-layer anchor `80`, but extending the Nether opening to `11` opens `81`,
+not `88`. Physical portal scale also remains 1:1.
 
-The complete logical Universe definition and these reported planes are stored
-once per save by `UniverseWorldCreationBridge`. The saved record has an explicit
-format version and contains no client UI state, portal entity UUIDs, or assumed
-Bedrock heights. On server start the bridge refuses to activate a partial set of
-dimensions; it first restores the stored definition, verifies that all declared
-levels are registered, then rebuilds the runtime manifest and installs the
-aperture bridge.
+Each opening is stored as a set of local two-dimensional cells. Four-neighbour
+adjacency is evaluated in the layer's toroidal coordinate system, so an opening
+may grow across an X/Z seam without splitting. Destroying a cell adjacent to
+one aperture extends it. Destroying a cell that joins multiple apertures merges
+them only when their local counterpart mapping agrees; otherwise the server
+rejects the destruction rather than inventing a discontinuous portal.
+
+Boundary destruction is server-authoritative and transactional. Before either
+side changes, both endpoint planes, dimensions, target Bedrock and aperture
+compatibility are validated. The vanilla break is cancelled and both block
+changes are committed together. A failed mutation restores the previous block
+states. Portal entities are a derived presentation layer and are not allowed to
+become the authority for the logical opening.
+
+Mutable openings are persisted separately in `BoundaryApertureSaveData` under
+`dynamicuniverse_apertures`. `UniverseSaveData` remains the immutable definition
+of the Universe, its stacks and generator-reported Bedrock planes. Immersive
+Portals entities carry deterministic aperture tags and are rebuilt from the
+logical aperture state; stale persisted entities with the same tag are removed
+before materialization.
+
+## Planet-core exception
+
+The innermost Bedrock-to-Bedrock connection is asymmetric. The first non-core
+layer, currently the deep Nether in Terra's stack, is the sole authoritative
+location for player-created core openings. Destroying the projected Bedrock on
+the planet-core side is rejected.
+
+A persisted `CoreBoundaryAperture` contains only its planet/connection identity,
+creation sequence, deep-layer anchor and local aperture shape. No cube face or
+core `(x,y,z)` position is stored. `PlanetCoreProjectionResolver` derives those
+values deterministically from the saved deep aperture.
+
+For every aperture the resolver searches deterministic candidates over the six
+cube faces, quarter-turn rotations and `(u,v)` offsets. A candidate is valid
+only when the complete shape lies on one face, stays inside the configured edge
+margin and does not overlap or directly touch an already assigned core opening.
+A newly created aperture therefore cannot land on a cube edge or corner. If no
+valid projection exists, the originating deep-layer Bedrock destruction is
+rejected.
+
+On server start the core holes are reconstructed from the deep-layer aperture
+records. If an aperture grows, its projection is recomputed deterministically;
+obsolete projected cells are restored to Bedrock and new cells are opened in
+one transaction. This makes the deep layer the persistent truth and the
+planet-core shell a reconstructible projection/cache.
 
 ## Local profiles and the End
 

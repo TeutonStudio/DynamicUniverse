@@ -1,6 +1,7 @@
 package de.TeutonStudio.DynamicUniverse.client.worldcreation
 
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen
+import de.TeutonStudio.DynamicUniverse.runtime.UniverseWorldCreationSession
 import java.util.WeakHashMap
 
 /** Keeps the draft tied to exactly one open Minecraft Create World screen. */
@@ -18,4 +19,14 @@ object UniverseWorldCreationDraftStore {
 
     /** The complete vertical stack is frozen before the Create World flow continues. */
     fun freezeWorldType(screen: CreateWorldScreen) = frozenWorldTypes.getOrPut(screen) { get(screen).toWorldType() }
+
+    /**
+     * The only point at which Minecraft still accepts additional level stems for a new world.
+     * The request is consumed on the integrated server's first start and persisted there.
+     */
+    fun prepareServerCreation(screen: CreateWorldScreen) {
+        val plan = get(screen).toLevelStemPlan()
+        screen.uiState.updateDimensions { _, dimensions -> UniverseLevelStemFactory.install(dimensions, plan) }
+        UniverseWorldCreationSession.arm(screen.uiState.targetFolder, plan)
+    }
 }

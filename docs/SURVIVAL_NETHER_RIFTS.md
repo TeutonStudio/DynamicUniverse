@@ -1,126 +1,129 @@
-# Survival-Nether-Risse und Debug-Werkzeuge
+# Dynamische Survival-Bedrock-Risse
 
 ## Ziel
 
-Spieler sollen an der unteren Bedrock-Grenze eines gültigen
-Universe-Planetenstacks kontrolliert einen lokalen, horizontalen Übergang vom
-Overworld in den Nether öffnen können. Die Funktion nutzt die durch
-`LocalEuclideanPortalGraph` ermittelte Verbindung
-`minecraft:overworld.LOWER -> minecraft:the_nether.UPPER`; sie erfindet keine
-Zieldimension und keine Richtung.
+Ein Riss ist keine feste 3×3-, 5×5- oder 7×7-Struktur mehr. Er entsteht direkt
+aus der tatsächlich zerstörten Bedrock-Fläche einer registrierten
+Bedrock-to-Bedrock-Grenze. Jeder weitere angrenzende zerstörte Grenzblock
+vergrößert dieselbe logische Apertur.
 
-Der Übergang bleibt lokal und reversibel. Ein zweiter Wurftrank versiegelt ihn
-und stellt die ersetzte Grenzfläche wieder her.
+Die Runtime entscheidet ausschließlich anhand des aktiven Universe-Manifests,
+welche Dimension, Grenzseite und Skalierung zur getroffenen Bedrock-Ebene
+gehören. Gewöhnlicher Bedrock außerhalb einer registrierten Grenzebene wird von
+diesem System nicht verändert.
 
-## Survival-Gegenstände
+## Neue Öffnung
 
-### Nether-Riss-Trank
+Beim ersten zerstörten Grenzblock:
 
-Ein geworfener Trank, der beim Aufprall auf eine gültige Bedrock-Untergrenze
-einen Riss öffnet. Es gibt drei feste Varianten:
+1. wird die zugehörige `DimensionConnection` aufgelöst;
+2. wird die Quellkoordinate im toroidalen Layer kanonisiert;
+3. bestimmt die Stack-Skalierung genau einmal den Gegenanker;
+4. wird geprüft, dass der Gegenblock noch Bedrock ist;
+5. werden Quell- und Gegenblock in einer serverautoritiven Transaktion geöffnet;
+6. wird eine `PairedBoundaryAperture` mit der lokalen Zelle `(0,0)` persistiert;
+7. wird die Portalansicht daraus materialisiert.
 
-| Variante | Öffnung | Zweck |
-| --- | --- | --- |
-| klein | 3 × 3 Blöcke | Einzelspieler und enge Schächte |
-| mittel | 5 × 5 Blöcke | Standardzugang |
-| groß | 7 × 7 Blöcke | Fahrzeuge und größere Gruppen |
+## Vergrößerung
 
-Der Trank darf ausschließlich für Spieler im Survival-Modus funktionieren.
-Creative-/Spectator-Spieler verwenden stattdessen die Debug-Befehle.
+Sobald eine Apertur existiert, wird ihre Form lokal behandelt. Die globale
+Dimensionsskalierung wird für weitere Zellen nicht erneut angewendet.
 
-### Rissversiegler
+Beispiel bei Faktor 8:
 
-Ein geworfener Trank, der einen getroffenen bestehenden Riss schließt. Dabei
-entfernt er die zugehörigen Portalinstanzen und stellt die bei der Öffnung
-gesicherten Blockzustände wieder her. Der Versiegler darf keinen Riss anhand
-einer bloßen Position erraten: Er benötigt die gespeicherte Riss-ID des
-getroffenen Portals beziehungsweise dessen Rissfläche.
+```text
+Nether-Anker 10  <->  Außen-Anker 80
+Nether +1        <->  Außen +1
+11               <->  81
+```
 
-## Zulässigkeitsprüfung beim Öffnen
+Nicht `11 <-> 88`.
 
-Vor einer Änderung prüft der Server vollständig autoritativ:
+Die Form ist eine Menge lokaler Blockzellen. Dadurch können konkave, L-förmige
+oder anderweitig unregelmäßige Löcher exakt beschrieben werden. Immersive
+Portals materialisiert in der ersten Implementierung jede Zelle als eigenes
+1×1-Portalpaar. Die logische Form ist davon unabhängig und kann später ohne
+Save-Migration zu einem optimierten Portalmesh zusammengefasst werden.
 
-1. Der Werfer ist ein Survival-Spieler.
-2. Die Quell-Dimension ist `minecraft:overworld`.
-3. Der Treffer liegt auf der unteren Bedrock-Grenze des aktiven planetaren
-   Dimensionsstacks ("Niedriglandschaft"), nicht nur auf einem beliebigen
-   niedrigen Y-Wert oder künstlich platziertem Bedrock.
-4. `LocalEuclideanPortalGraph` liefert für `overworld.LOWER` ein Portal zum
-   `nether.UPPER`.
-5. Die gesamte Zielgröße besteht aus zulässigen Bedrock-Grenzblöcken und liegt
-   innerhalb geladener Chunks.
-6. Die Fläche überschneidet keinen vorhandenen Riss und verletzt weder einen
-   Schutzbereich noch eine konfigurierbare Spieler-/Weltgrenze.
+## Toroidale Nähte
 
-Bei einer fehlgeschlagenen Prüfung verändert der Trank keine Blöcke und wird
-mit einer verständlichen Rückmeldung abgewiesen.
+Nachbarschaft wird über den `HorizontalPeriod` der betreffenden Dimension
+berechnet. Zwei Zellen an gegenüberliegenden X- oder Z-Kanten können deshalb
+Teil derselben Apertur sein. Die Portalmaterialisierung kanonisiert auch die
+Weltposition jeder lokalen Zelle, sodass ein Riss über eine Torusnaht nicht in
+eine zweite logische Öffnung zerfällt.
 
-## Persistenter Risszustand
+## Zusammenwachsende Risse
 
-Jeder geöffnete Riss benötigt eine persistierte, serverautoritativ vergebene
-ID. Mindestens folgende Daten werden gespeichert:
+Berührt ein neu zerstörter Block mehrere bestehende Aperturen derselben
+Verbindung, vergleicht der Server deren lokale Gegenabbildung für diese Zelle.
+Nur wenn alle denselben Gegenblock ergeben, werden sie zu einer Apertur
+vereinigt. Andernfalls wird die Bedrock-Zerstörung abgelehnt. Damit kann ein
+Spieler zwei global verschieden verankerte lokale Räume nicht versehentlich zu
+einem widersprüchlichen Portal zusammenschweißen.
 
-- Riss-ID und Ersteller-UUID;
-- Quelle, Ziel, Größe und Begrenzungsfläche;
-- die vom Portalgraphen gelieferte Skalierung und Grenzart;
-- vollständige Blockzustände der ersetzten Bedrock-Fläche;
-- IDs aller materialisierten Portalinstanzen;
-- Öffnungszeit und optional eine Ablaufzeit.
+## Planetenkern
 
-Beim Laden einer Welt wird der Zustand gegen den aktuellen Portalgraphen
-validiert. Nicht mehr gültige Risse werden nicht blind rekonstruiert, sondern
-als reparaturbedürftig protokolliert.
+Die Verbindung zum Planetenkern ist die Ausnahme. Der tiefe Nether beziehungsweise
+die erste Nicht-Kern-Schicht ist alleinige persistente Wahrheit.
 
-## Debug-Befehle
+Gespeichert werden dort nur:
 
-Alle Befehle liegen unter `/dynamicuniverse debug` und benötigen
-Administratorrechte. Lesende Befehle dürfen keinen Weltzustand verändern;
-schreibende Befehle müssen Ziel, Größe und Resultat protokollieren.
+- Apertur-ID und Erstellungsreihenfolge;
+- Planet und Connection-ID;
+- Deep-Layer-Dimension und Grenzseite;
+- kanonischer Deep-Layer-Anker;
+- lokale Aperturform.
 
-### Stack- und Grenzdiagnose
+Es werden keine Kernkoordinaten gespeichert. Der
+`PlanetCoreProjectionResolver` ordnet alle Deep-Layer-Aperturen deterministisch
+einer der sechs Würfelflächen zu. Eine Projektion ist nur zulässig, wenn die
+vollständige Form mit Sicherheitsrand auf genau einer Fläche liegt und keine
+bereits zugewiesene Kernöffnung schneidet oder direkt berührt.
 
-| Befehl | Wirkung |
-| --- | --- |
-| `stacks inspect <dimension>` | Zeigt Planet, Stack, Schicht sowie obere und untere Nachbarn der Dimension. |
-| `stacks validate [planetId]` | Prüft eindeutige Dimensionszuordnung, Grenzmaterial und Skalierungen. |
-| `stacks route <sourceDimension> <targetDimension> [x y z]` | Gibt den Übergangspfad und die transformierten Koordinaten aus. |
-| `boundaries scan <dimension> <bottom|top> [radius]` | Prüft eine Grenzfläche auf Bedrock/Luft, Lücken und falsche Blöcke. |
-| `portals inspect <dimension> <bottom|top>` | Zeigt Zielraum, Grenzart und Skalierung des abgeleiteten lokalen Portals. |
-| `portals list [dimension]` | Listet geplante und materialisierte lokale Portale. |
+Ist keine kantenfreie Projektion möglich, bleibt der auslösende Deep-Layer-
+Bedrockblock erhalten. Bedrock auf der Kernseite selbst kann keine neue
+Apertur erzeugen oder vergrößern.
 
-### Rissverwaltung
+## Persistenz und Wiederaufbau
 
-| Befehl | Wirkung |
-| --- | --- |
-| `rifts validate <x> <y> <z> <small|medium|large>` | Führt alle Öffnungsprüfungen aus, ohne Blöcke oder Portale zu ändern. |
-| `rifts create <small|medium|large> <x> <y> <z>` | Öffnet für Debug-Zwecke einen Riss nach erfolgreicher Validierung. |
-| `rifts inspect <id>` | Zeigt gespeicherten Zustand, Besitzer, Fläche und Portalinstanzen. |
-| `rifts list [dimension]` | Listet alle Risse, optional gefiltert nach Quelle. |
-| `rifts reevaluate [dimension] [x z] [radius]` | Bewertet Grenzflächen und Rissgültigkeit im Bereich erneut, ohne automatisch neue Risse zu öffnen. |
-| `rifts seal <id> [restoreBlocks]` | Entfernt einen Riss; `restoreBlocks` ist standardmäßig aktiv. |
-| `rifts reconcile` | Vergleicht persistierte Risse, Portalgraph und materialisierte Portale; meldet oder repariert nur explizit bestätigte Abweichungen. |
-| `rifts trace <id>` | Aktiviert detaillierte Serverprotokolle für Validierung, Materialisierung und Versiegelung eines Risses. |
-| `rifts give <player> <opener|sealer> [small|medium|large]` | Gibt einen Debug-Gegenstand aus. |
+`UniverseSaveData` speichert weiterhin nur die statische Universe-Definition und
+die generatorseitig ermittelten Bedrock-Ebenen. Spieleränderungen liegen in der
+separaten `BoundaryApertureSaveData`.
 
-### Weltweite Wartung
+Beim Serverstart:
 
-| Befehl | Wirkung |
-| --- | --- |
-| `portals reevaluate [dimension] [x z] [radius]` | Aktualisiert die Portalpläne für einen Bereich, ohne ungeprüfte Portal-Entities zu erzeugen. |
-| `portals materialize <portalId>` | Erzwingt die Materialisierung eines bereits validierten Portalplans. |
-| `portals remove <portalId>` | Entfernt ausschließlich die benannte Portalinstanz. |
-| `reload universe` | Lädt die Universe-/Stack-Konfiguration neu; eine anschließende `rifts reconcile`-Prüfung wird empfohlen. |
+1. wird das Universe-Manifest rekonstruiert;
+2. werden Deep-Layer-Aperturen geladen;
+3. werden Planetenkern-Projektionen erneut deterministisch berechnet;
+4. werden die entsprechenden Kernblöcke geöffnet;
+5. werden Portalansichten aus dem logischen Aperturzustand abgeglichen.
 
-## Sicherheits- und UX-Regeln
+Immersive-Portals-UUIDs sind ausdrücklich kein persistentes Domainmodell.
+Portal-Entities tragen stattdessen `dynamicuniverse:aperture:<id>`-Tags; bereits
+persistierte Entities mit derselben Apertur-ID werden vor einer erneuten
+Materialisierung entfernt.
 
-- Nur der Server entscheidet über Öffnen, Schließen, Blockwiederherstellung und
-  Zielkoordinaten.
-- Ein Riss darf niemals ersetzt werden, solange dessen gespeicherte Fläche
-  nicht vollständig wiederherstellbar ist.
-- Materialisierung erfolgt erst nach vollständiger Prüfung und gespeicherter
-  Riss-Metadaten; bei einem Fehler muss der Vorgang atomar zurückrollen.
-- Die effektiven Größen, der erlaubte Bereich und Schutzgebietsregeln gehören
-  in eine Serverkonfiguration.
-- Der erste Prototyp sollte Risse nicht automatisch ablaufen lassen. Eine
-  Ablaufzeit ist erst sinnvoll, wenn ihre Block- und Spielerfolgen eindeutig
-  geregelt sind.
+## Transaktionsregeln
+
+Für jede Grenzmutation gilt:
+
+- nur der Server entscheidet über Quelle, Ziel und Aperturzuordnung;
+- die Vanilla-Bedrock-Zerstörung wird bei einer verwalteten Grenze abgebrochen;
+- alle benötigten Gegenblöcke und Projektionen werden vor der Mutation geprüft;
+- Quell-, Ziel- beziehungsweise Kernblöcke werden gemeinsam geändert;
+- schlägt eine Blockmutation fehl, werden bereits geänderte Blockzustände
+  zurückgerollt;
+- Portalmaterialisierung ist eine abgeleitete Darstellung und darf die
+  persistente logische Apertur nicht zur Hälfte zurückrollen;
+- ein vorhandener Nicht-Bedrock-/Nicht-Luft-Spielerblock wird nicht blind
+  überschrieben.
+
+## Aktueller Scope
+
+Diese Implementierung deckt Erzeugen, Vergrößern, kompatibles Zusammenführen,
+Persistenz, Neustart-Rekonstruktion und Planetenkern-Projektion ab. Ein eigenes
+Versiegelungswerkzeug, Schutzgebietsregeln und administratives Apertur-Editing
+bleiben separate Features; sie müssen auf `BoundaryApertureSaveData` aufsetzen
+und dürfen keine zweite Riss-Wahrheit neben dem dynamischen Aperturmodell
+einführen.

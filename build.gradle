@@ -80,6 +80,8 @@ dependencies {
     runtimeOnly "curse.maven:konkrete-410295:${konkrete_curseforge_file_id}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     runtimeOnly "maven.modrinth:1bokaNcj:${xaeros_minimap_modrinth_version_id}"
+    // Full-screen world map for runClient; it is never bundled with the published mod.
+    runtimeOnly "maven.modrinth:NcUtCpym:${xaeros_world_map_modrinth_version_id}"
     // Targeted block/entity inspection; it also integrates with the existing JEI runtime.
     runtimeOnly "maven.modrinth:nvQzSEkH:${jade_modrinth_version_id}"
     // Client-side ItemStack and looked-at entity SNBT inspection without editing save data.
@@ -88,6 +90,10 @@ dependencies {
     runtimeOnly "maven.modrinth:l6YH9Als:${spark_modrinth_version_id}"
     // Readable F3 HUD for dimension, chunk, entity, and client-runtime state.
     runtimeOnly "maven.modrinth:8shC1gFX:${betterf3_modrinth_version_id}"
+
+    // Optional Distant Horizons API/runtime target. Common code must remain loadable without it.
+    compileOnly "maven.modrinth:uCdwusMi:${distant_horizons_modrinth_version_id}"
+    runtimeOnly "maven.modrinth:uCdwusMi:${distant_horizons_modrinth_version_id}"
 
     // Compatibility targets, deliberately optional and never referenced from common code.
     compileOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_version_id}"

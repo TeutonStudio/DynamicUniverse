@@ -36,6 +36,7 @@ class UniverseHierarchyScreen(
             return
         }
         UniverseWorldCreationDraftStore.freezeWorldType(createWorldScreen)
+        UniverseWorldCreationDraftStore.prepareServerCreation(createWorldScreen)
         minecraft?.setScreen(parent)
     }
 

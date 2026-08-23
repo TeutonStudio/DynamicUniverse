@@ -2,72 +2,131 @@ package de.TeutonStudio.DynamicUniverse.runtime
 
 import de.TeutonStudio.DynamicUniverse.DynamicUniverse
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
-import de.TeutonStudio.DynamicUniverse.dimension.DimensionPosition
 import net.minecraft.core.BlockPos
+import net.minecraft.network.chat.Component
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.neoforge.event.level.BlockEvent
+import net.neoforged.neoforge.event.level.ExplosionEvent
 
-/**
- * Installs the generated Bedrock planes for the active Universe world. Calling this is part of
- * server-level creation, after all local planet dimensions have been created and loaded.
- */
+/** Runtime owner for dynamic Bedrock apertures in the active Universe save. */
 object BedrockApertureRuntime {
     @Volatile
     private var bridge: ServerBedrockApertureBridge? = null
 
+    @Volatile
+    private var manifest: UniverseGeometryManifest? = null
+
     fun install(manifest: UniverseGeometryManifest, planes: Collection<BedrockBoundaryPlane>) {
-        bridge = ServerBedrockApertureBridge(manifest.links, planes)
+        this.manifest = manifest
+        bridge = ServerBedrockApertureBridge(manifest, planes)
+        AperturePortalRuntime.install(planes)
+    }
+
+    fun reconcile(server: MinecraftServer) {
+        bridge?.reconcileCoreProjections(server)
+        val activeManifest = manifest ?: return
+        val save = BoundaryApertureSaveData.find(server) ?: return
+        prunePortals(server, save)
+        save.pairedApertures().forEach { aperture ->
+            AperturePortalRuntime.rebuildPaired(server, activeManifest, aperture)
+        }
+        val resolver = PlanetCoreProjectionResolver()
+        activeManifest.planetCores.forEach { geometry ->
+            val apertures = save.coreApertures().filter { it.connectionId == geometry.connectionId }
+            val projections = resolver.resolve(geometry, apertures) ?: return@forEach
+            apertures.forEach { aperture ->
+                projections[aperture.id]?.let { projection ->
+                    AperturePortalRuntime.rebuildCore(server, activeManifest, geometry, aperture, projection)
+                }
+            }
+        }
+    }
+
+    fun prunePortals(server: MinecraftServer) {
+        val save = BoundaryApertureSaveData.find(server) ?: return
+        prunePortals(server, save)
+    }
+
+    private fun prunePortals(server: MinecraftServer, save: BoundaryApertureSaveData) {
+        val validIds = buildSet {
+            save.pairedApertures().mapTo(this) { it.id }
+            save.coreApertures().mapTo(this) { it.id }
+        }
+        AperturePortalRuntime.prune(server, validIds)
     }
 
     fun clear() {
         bridge = null
+        manifest = null
+        AperturePortalRuntime.clear()
     }
 
-    internal fun mirrorBedrockBreak(sourceLevel: ServerLevel, sourcePos: BlockPos): BedrockAperture? =
-        bridge?.mirrorBedrockBreak(sourceLevel, sourcePos)
-}
-
-/** Minecraft-specific half of the aperture operation. It never opens a non-Bedrock target. */
-class ServerBedrockApertureBridge(
-    connections: Collection<de.TeutonStudio.DynamicUniverse.dimension.DimensionConnection>,
-    planes: Collection<BedrockBoundaryPlane>,
-) {
-    private val planner = BedrockAperturePlanner(connections, planes)
-
-    fun mirrorBedrockBreak(sourceLevel: ServerLevel, sourcePos: BlockPos): BedrockAperture? {
-        if (!sourceLevel.getBlockState(sourcePos).`is`(Blocks.BEDROCK)) return null
-        val sourceDimension = DimensionId(sourceLevel.dimension().location().toString())
-        val source = DimensionPosition(sourcePos.x.toLong(), sourcePos.y.toLong(), sourcePos.z.toLong())
-        val aperture = planner.apertureFor(sourceDimension, source) ?: return null
-        val targetLevel = sourceLevel.server.allLevels.firstOrNull { level ->
-            level.dimension().location().toString() == aperture.connection.target.value
-        } ?: return null
-        val targetPos = aperture.target.toBlockPosOrNull() ?: return null
-        if (!targetLevel.getBlockState(targetPos).`is`(Blocks.BEDROCK)) return null
-
-        targetLevel.setBlock(targetPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
-        return aperture
+    fun materializeCoreShell(level: ServerLevel, chunk: net.minecraft.world.level.chunk.ChunkAccess) {
+        val activeManifest = manifest ?: return
+        val dimension = DimensionId(level.dimension().location().toString())
+        val geometry = activeManifest.planetCores.singleOrNull { it.coreDimension == dimension } ?: return
+        val openings = BoundaryApertureSaveData.find(level.server)
+            ?.coreApertures()
+            ?.filter { it.connectionId == geometry.connectionId }
+            .orEmpty()
+            .let { apertures -> PlanetCoreProjectionResolver().resolve(geometry, apertures)?.values.orEmpty() }
+            .flatMapTo(linkedSetOf()) { projection -> PlanetCoreProjectionResolver().blockPositions(geometry, projection).orEmpty() }
+        PlanetCoreShellMaterializer.materialize(chunk, geometry, openings)
     }
+
+    fun isPlanetCore(dimension: DimensionId): Boolean = manifest?.planetCores?.any { it.coreDimension == dimension } == true
+
+    internal fun prepareBedrockBreak(sourceLevel: ServerLevel, sourcePos: BlockPos): BedrockBreakPreparation =
+        bridge?.prepareBedrockBreak(sourceLevel, sourcePos) ?: BedrockBreakPreparation.Ignored
 }
 
-/** Mirrors a player-created boundary hole before NeoForge completes the source block break. */
+/**
+ * Boundary Bedrock is handled as one server-side transaction. Player breaks and explosion block
+ * lists use the same preparation path, so the source and counterpart can never diverge halfway.
+ */
 @EventBusSubscriber(modid = DynamicUniverse.MOD_ID)
 object BedrockApertureBreakListener {
     @SubscribeEvent
     fun onBlockBreak(event: BlockEvent.BreakEvent) {
         if (event.isCanceled || !event.state.`is`(Blocks.BEDROCK)) return
         val level = event.level as? ServerLevel ?: return
-        BedrockApertureRuntime.mirrorBedrockBreak(level, event.pos)
+        when (val preparation = BedrockApertureRuntime.prepareBedrockBreak(level, event.pos)) {
+            BedrockBreakPreparation.Ignored -> Unit
+            is BedrockBreakPreparation.Rejected -> {
+                event.isCanceled = true
+                event.player.sendSystemMessage(Component.literal("DynamicUniverse: ${preparation.reason}"))
+            }
+            is BedrockBreakPreparation.Accepted -> {
+                event.isCanceled = true
+                if (preparation.commit()) {
+                    BedrockApertureRuntime.prunePortals(level.server)
+                } else {
+                    event.player.sendSystemMessage(Component.literal("DynamicUniverse: Aperture transaction rolled back."))
+                }
+            }
+        }
     }
-}
 
-private fun DimensionPosition.toBlockPosOrNull(): BlockPos? {
-    if (x !in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) return null
-    if (y !in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) return null
-    if (z !in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) return null
-    return BlockPos(x.toInt(), y.toInt(), z.toInt())
+    @SubscribeEvent
+    fun onExplosionDetonate(event: ExplosionEvent.Detonate) {
+        val level = event.level as? ServerLevel ?: return
+        val iterator = event.affectedBlocks.listIterator()
+        while (iterator.hasNext()) {
+            val position = iterator.next()
+            if (!level.getBlockState(position).`is`(Blocks.BEDROCK)) continue
+            when (val preparation = BedrockApertureRuntime.prepareBedrockBreak(level, position)) {
+                BedrockBreakPreparation.Ignored -> Unit
+                is BedrockBreakPreparation.Rejected -> iterator.remove()
+                is BedrockBreakPreparation.Accepted -> {
+                    // Remove it from vanilla explosion processing. The transaction owns this block now.
+                    iterator.remove()
+                    if (preparation.commit()) BedrockApertureRuntime.prunePortals(level.server)
+                }
+            }
+        }
+    }
 }
