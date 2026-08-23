@@ -101,6 +101,22 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         }
     }
 
+    override fun remove(server: MinecraftServer, apertureIds: Collection<String>) {
+        apertureIds.forEach { apertureId -> removeExisting(server, apertureId) }
+    }
+
+    override fun prune(server: MinecraftServer, validApertureIds: Set<String>) {
+        server.allLevels.forEach { level ->
+            level.getAllEntities()
+                .filterIsInstance<Portal>()
+                .filter { portal ->
+                    val apertureId = portal.portalTag?.apertureIdOrNull()
+                    apertureId != null && apertureId !in validApertureIds
+                }
+                .forEach { portal -> portal.discard() }
+        }
+    }
+
     private fun materializeCellPair(
         sourceLevel: ServerLevel,
         targetLevel: ServerLevel,
@@ -153,6 +169,12 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         val inPlane = axisAngle(0.0, 0.0, 1.0, quarterTurns * 90.0)
         return multiply(faceRotation, inPlane)
     }
+}
+
+private fun String.apertureIdOrNull(): String? {
+    val prefix = "dynamicuniverse:aperture:"
+    if (!startsWith(prefix)) return null
+    return removePrefix(prefix).substringBefore(':').takeIf { it.isNotBlank() }
 }
 
 private fun UniverseGeometryManifest.period(dimension: DimensionId): HorizontalPeriod? =
