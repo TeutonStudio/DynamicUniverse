@@ -54,7 +54,7 @@ object AperturePortalRuntime {
         manifest: UniverseGeometryManifest,
         aperture: PairedBoundaryAperture,
     ) {
-        adapter()?.rebuildPaired(server, manifest, planes, aperture)
+        runCatching { adapter()?.rebuildPaired(server, manifest, planes, aperture) }
     }
 
     fun rebuildCore(
@@ -64,6 +64,6 @@ object AperturePortalRuntime {
         aperture: CoreBoundaryAperture,
         projection: CoreApertureProjection,
     ) {
-        adapter()?.rebuildCore(server, manifest, planes, geometry, aperture, projection)
+        runCatching { adapter()?.rebuildCore(server, manifest, planes, geometry, aperture, projection) }
     }
 }
