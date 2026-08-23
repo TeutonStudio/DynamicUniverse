@@ -20,6 +20,10 @@ interface AperturePortalAdapter {
         aperture: CoreBoundaryAperture,
         projection: CoreApertureProjection,
     )
+
+    fun remove(server: MinecraftServer, apertureIds: Collection<String>)
+
+    fun prune(server: MinecraftServer, validApertureIds: Set<String>)
 }
 
 object AperturePortalRuntime {
@@ -47,6 +51,15 @@ object AperturePortalRuntime {
     fun clear() {
         adapter = null
         planes = emptyList()
+    }
+
+    fun remove(server: MinecraftServer, apertureIds: Collection<String>) {
+        if (apertureIds.isEmpty()) return
+        runCatching { adapter()?.remove(server, apertureIds) }
+    }
+
+    fun prune(server: MinecraftServer, validApertureIds: Set<String>) {
+        runCatching { adapter()?.prune(server, validApertureIds) }
     }
 
     fun rebuildPaired(
