@@ -12,8 +12,10 @@ data class CoreShellCell(val face: CoreShellFace, val u: Int, val v: Int)
 data class CoreApertureProjection(
     val apertureId: String,
     val rotationQuarterTurns: Int,
-    val cells: Set<CoreShellCell>,
-)
+    val mapping: Map<ApertureCell, CoreShellCell>,
+) {
+    val cells: Set<CoreShellCell> get() = mapping.values.toSet()
+}
 
 class PlanetCoreProjectionResolver(
     private val maxAttemptsPerAperture: Int = 4096,
@@ -43,22 +45,23 @@ class PlanetCoreProjectionResolver(
     fun blockPositions(
         geometry: PlanetCoreGeometry,
         projection: CoreApertureProjection,
-    ): Set<BlockPos>? {
+    ): Set<BlockPos>? = projection.cells.mapTo(linkedSetOf()) { cell ->
+        blockPosition(geometry, cell) ?: return null
+    }
+
+    fun blockPosition(geometry: PlanetCoreGeometry, cell: CoreShellCell): BlockPos? {
         val edge = geometry.edgeBlocks
         if (edge !in 2..Int.MAX_VALUE.toLong()) return null
         val n = edge.toInt()
         val half = n / 2
         fun axis(index: Int): Int = -half + index
-
-        return projection.cells.mapTo(linkedSetOf()) { cell ->
-            when (cell.face) {
-                CoreShellFace.POSITIVE_X -> BlockPos(half - 1, axis(cell.v), axis(cell.u))
-                CoreShellFace.NEGATIVE_X -> BlockPos(-half, axis(cell.v), axis(n - 1 - cell.u))
-                CoreShellFace.POSITIVE_Y -> BlockPos(axis(cell.u), half - 1, axis(cell.v))
-                CoreShellFace.NEGATIVE_Y -> BlockPos(axis(cell.u), -half, axis(n - 1 - cell.v))
-                CoreShellFace.POSITIVE_Z -> BlockPos(axis(cell.u), axis(cell.v), half - 1)
-                CoreShellFace.NEGATIVE_Z -> BlockPos(axis(n - 1 - cell.u), axis(cell.v), -half)
-            }
+        return when (cell.face) {
+            CoreShellFace.POSITIVE_X -> BlockPos(half - 1, axis(cell.v), axis(cell.u))
+            CoreShellFace.NEGATIVE_X -> BlockPos(-half, axis(cell.v), axis(n - 1 - cell.u))
+            CoreShellFace.POSITIVE_Y -> BlockPos(axis(cell.u), half - 1, axis(cell.v))
+            CoreShellFace.NEGATIVE_Y -> BlockPos(axis(cell.u), -half, axis(n - 1 - cell.v))
+            CoreShellFace.POSITIVE_Z -> BlockPos(axis(cell.u), axis(cell.v), half - 1)
+            CoreShellFace.NEGATIVE_Z -> BlockPos(axis(n - 1 - cell.u), axis(cell.v), -half)
         }
     }
 
@@ -73,20 +76,20 @@ class PlanetCoreProjectionResolver(
         val seed = HexFormat.of().formatHex(digest)
         val face = CoreShellFace.entries[floorMod(seed.substring(0, 8).toLong(16), CoreShellFace.entries.size.toLong()).toInt()]
         val rotation = floorMod(seed.substring(8, 16).toLong(16), 4L).toInt()
-        val rotated = aperture.shape.cells.map { rotate(it, rotation) }
-        val minX = rotated.minOf { it.dx }
-        val minZ = rotated.minOf { it.dz }
-        val normalized = rotated.map { ApertureCell(it.dx - minX, it.dz - minZ) }
-        val width = normalized.maxOf { it.dx } + 1
-        val height = normalized.maxOf { it.dz } + 1
+        val rotatedByOriginal = aperture.shape.cells.associateWith { rotate(it, rotation) }
+        val minX = rotatedByOriginal.values.minOf { it.dx }
+        val minZ = rotatedByOriginal.values.minOf { it.dz }
+        val normalizedByOriginal = rotatedByOriginal.mapValues { (_, cell) -> ApertureCell(cell.dx - minX, cell.dz - minZ) }
+        val width = normalizedByOriginal.values.maxOf { it.dx } + 1
+        val height = normalizedByOriginal.values.maxOf { it.dz } + 1
         val margin = geometry.edgeMarginBlocks
         val availableU = edge - 2 * margin - width + 1
         val availableV = edge - 2 * margin - height + 1
         if (availableU <= 0 || availableV <= 0) return null
         val u0 = margin + floorMod(seed.substring(16, 24).toLong(16), availableU.toLong()).toInt()
         val v0 = margin + floorMod(seed.substring(24, 32).toLong(16), availableV.toLong()).toInt()
-        val cells = normalized.mapTo(linkedSetOf()) { CoreShellCell(face, u0 + it.dx, v0 + it.dz) }
-        return CoreApertureProjection(aperture.id, rotation, cells)
+        val mapping = normalizedByOriginal.mapValues { (_, cell) -> CoreShellCell(face, u0 + cell.dx, v0 + cell.dz) }
+        return CoreApertureProjection(aperture.id, rotation, mapping)
     }
 
     private fun rotate(cell: ApertureCell, quarterTurns: Int): ApertureCell = when (floorMod(quarterTurns, 4)) {
