@@ -2,11 +2,9 @@ package de.TeutonStudio.DynamicUniverse.command
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
-import de.TeutonStudio.DynamicUniverse.command.argument.DimensionLayerArgument
-import de.TeutonStudio.DynamicUniverse.command.argument.DimensionStackArgument
-import de.TeutonStudio.DynamicUniverse.command.argument.PlanetArgument
-import de.TeutonStudio.DynamicUniverse.command.argument.UniverseArgument
 import de.TeutonStudio.DynamicUniverse.command.service.CommandFeedback
+import de.TeutonStudio.DynamicUniverse.runtime.UniverseRuntime
+import de.TeutonStudio.DynamicUniverse.runtime.UniverseTopology
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
@@ -38,21 +36,37 @@ object DynamicUniverseCommands {
                             Commands.literal("inspect")
                                 .then(Commands.literal("universe")
                                     .executes { feedback(it.source, DynamicUniverseCommandServices.universeQuery.inspectUniverse()) }
-                                    .then(Commands.argument("universe", UniverseArgument.universe())
+                                    // These values are intentionally vanilla string arguments. Custom Brigadier
+                                    // argument types must have a registered network codec; otherwise Minecraft
+                                    // rejects the complete command tree while placing a player in the world.
+                                    .then(Commands.argument("universe", StringArgumentType.word()).suggests { _, builder ->
+                                        suggest(builder, UniverseRuntime.api().universes().map { it.id })
+                                    }
                                         .executes { feedback(it.source, DynamicUniverseCommandServices.universeQuery.inspectUniverse(StringArgumentType.getString(it, "universe"))) }))
                                 .then(Commands.literal("planet")
-                                    .then(Commands.argument("planet", PlanetArgument.planet())
+                                    .then(Commands.argument("planet", StringArgumentType.word()).suggests { _, builder ->
+                                        suggest(builder, UniverseTopology.planets(UniverseRuntime.api()).map(UniverseTopology::planetReference))
+                                    }
                                         .executes { feedback(it.source, DynamicUniverseCommandServices.universeQuery.inspectPlanet(StringArgumentType.getString(it, "planet"))) }))
                                 .then(Commands.literal("stack")
-                                    .then(Commands.argument("planet", PlanetArgument.planet())
-                                        .then(Commands.argument("stack", DimensionStackArgument.stack())
+                                    .then(Commands.argument("planet", StringArgumentType.word()).suggests { _, builder ->
+                                        suggest(builder, UniverseTopology.planets(UniverseRuntime.api()).map(UniverseTopology::planetReference))
+                                    }
+                                        .then(Commands.argument("stack", StringArgumentType.word()).suggests { context, builder ->
+                                            val planet = StringArgumentType.getString(context, "planet")
+                                            suggest(builder, UniverseTopology.resolvePlanet(UniverseRuntime.api(), planet)?.planet?.stacks?.map { it.id }.orEmpty())
+                                        }
                                             .executes { feedback(it.source, DynamicUniverseCommandServices.universeQuery.inspectStack(
                                                 StringArgumentType.getString(it, "planet"), StringArgumentType.getString(it, "stack"),
                                             )) })))
                                 .then(Commands.literal("layer")
-                                    .then(Commands.argument("planet", PlanetArgument.planet())
-                                        .then(Commands.argument("stack", DimensionStackArgument.stack())
-                                            .then(Commands.argument("layer", DimensionLayerArgument.layer())
+                                    .then(Commands.argument("planet", StringArgumentType.word())
+                                        .then(Commands.argument("stack", StringArgumentType.word())
+                                            .then(Commands.argument("layer", StringArgumentType.word()).suggests { context, builder ->
+                                                val planet = StringArgumentType.getString(context, "planet")
+                                                val stack = StringArgumentType.getString(context, "stack")
+                                                suggest(builder, UniverseTopology.resolveStack(UniverseRuntime.api(), planet, stack)?.stack?.layersInnerToOuter?.map { it.id }.orEmpty())
+                                            }
                                                 .executes { feedback(it.source, DynamicUniverseCommandServices.universeQuery.inspectLayer(
                                                     StringArgumentType.getString(it, "planet"), StringArgumentType.getString(it, "stack"), StringArgumentType.getString(it, "layer"),
                                                 )) }))))
@@ -68,9 +82,13 @@ object DynamicUniverseCommands {
                             Commands.literal("goto")
                                 .requires(CommandPermissions::mayNavigate)
                                 .then(Commands.literal("layer")
-                                    .then(Commands.argument("planet", PlanetArgument.planet())
-                                        .then(Commands.argument("stack", DimensionStackArgument.stack())
-                                            .then(Commands.argument("layer", DimensionLayerArgument.layer())
+                                    .then(Commands.argument("planet", StringArgumentType.word())
+                                        .then(Commands.argument("stack", StringArgumentType.word())
+                                            .then(Commands.argument("layer", StringArgumentType.word()).suggests { context, builder ->
+                                                val planet = StringArgumentType.getString(context, "planet")
+                                                val stack = StringArgumentType.getString(context, "stack")
+                                                suggest(builder, UniverseTopology.resolveStack(UniverseRuntime.api(), planet, stack)?.stack?.layersInnerToOuter?.map { it.id }.orEmpty())
+                                            }
                                                 .executes {
                                                     val player = it.source.entity as? ServerPlayer
                                                         ?: return@executes feedback(it.source, CommandFeedback(listOf("This command requires a player."), false))
@@ -89,5 +107,14 @@ object DynamicUniverseCommands {
     private fun feedback(source: CommandSourceStack, result: CommandFeedback): Int {
         result.lines.forEach { line -> source.sendSuccess({ Component.literal(line) }, false) }
         return if (result.successful) 1 else 0
+    }
+
+    private fun suggest(
+        builder: com.mojang.brigadier.suggestion.SuggestionsBuilder,
+        values: Iterable<String>,
+    ): java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> {
+        val prefix = builder.remainingLowerCase
+        values.filter { it.lowercase().startsWith(prefix) }.forEach(builder::suggest)
+        return builder.buildFuture()
     }
 }

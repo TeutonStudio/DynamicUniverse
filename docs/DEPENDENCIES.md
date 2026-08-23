@@ -14,9 +14,18 @@ Only these external mod dependencies are declared:
 | Konkrete | Required library for Just Zoom | Development only |
 | Just Enough Items (JEI) | `runClient` recipe/item viewer | Development only |
 | Xaero's Minimap | `runClient` minimap | Development only |
+| Jade | Targeted block/entity inspection and JEI integration | Development only |
+| NBTviewer | Item and looked-at entity SNBT inspection | Development only |
+| spark | Tick, heap, and CPU profiler (`/spark`) | Development only |
+| BetterF3 | Configurable dimension/chunk/runtime debug HUD | Development only |
 
 Dynamic Universe does not depend on TerrArchitecture, Galacticraft, DynamicDimensions, Create, or Distant Horizons at compile/runtime by default. Sable is compile-only for optional API adapters; an installation that uses the adapter must provide the Sable mod itself.
 
-The three client quality-of-life mods are Gradle `runtimeOnly` dependencies. They
-are available to `runClient`, but are not compile dependencies and are not
-included in the published Dynamic Universe artifact.
+The development quality-of-life and diagnostics mods are Gradle `runtimeOnly`
+dependencies. They are available to `runClient`, but are not compile dependencies
+and are not included in the published Dynamic Universe artifact. Their Modrinth
+version IDs pin NeoForge 1.21.1 releases; Gradle downloads them into the development
+runtime instead of bundling their JARs into this repository.
+
+`runModpackClient` is not defined in this standalone repository. A consuming
+modpack may add these same runtime-only artifacts to its own development profile.
