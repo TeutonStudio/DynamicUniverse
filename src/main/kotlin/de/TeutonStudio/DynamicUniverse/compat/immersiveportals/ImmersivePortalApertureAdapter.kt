@@ -2,6 +2,7 @@ package de.TeutonStudio.DynamicUniverse.compat.immersiveportals
 
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaryFace
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
+import de.TeutonStudio.DynamicUniverse.runtime.ApertureCell
 import de.TeutonStudio.DynamicUniverse.runtime.AperturePortalAdapter
 import de.TeutonStudio.DynamicUniverse.runtime.BedrockBoundaryPlane
 import de.TeutonStudio.DynamicUniverse.runtime.CoreApertureProjection
@@ -11,6 +12,8 @@ import de.TeutonStudio.DynamicUniverse.runtime.PairedBoundaryAperture
 import de.TeutonStudio.DynamicUniverse.runtime.PlanetCoreGeometry
 import de.TeutonStudio.DynamicUniverse.runtime.PlanetCoreProjectionResolver
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseGeometryManifest
+import de.TeutonStudio.DynamicUniverse.topology.HorizontalPeriod
+import de.TeutonStudio.DynamicUniverse.topology.HorizontalPosition
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
@@ -41,22 +44,18 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         val connection = manifest.links.singleOrNull { it.id == aperture.connectionId } ?: return
         val sourceLevel = server.level(connection.source) ?: return
         val targetLevel = server.level(connection.target) ?: return
+        val sourcePeriod = manifest.period(connection.source) ?: return
+        val targetPeriod = manifest.period(connection.target) ?: return
         val sourcePlane = planes.singleOrNull { it.dimension == connection.source && it.face == connection.sourceBoundaryFace } ?: return
         val targetPlane = planes.singleOrNull { it.dimension == connection.target && it.face == connection.targetBoundaryFace } ?: return
         val sourceOrientation = boundaryOrientation(connection.sourceBoundaryFace)
         val targetOrientation = boundaryOrientation(connection.targetBoundaryFace)
 
         aperture.shape.cells.forEach { cell ->
-            val sourceCenter = Vec3(
-                aperture.sourceAnchor.x + cell.dx + 0.5,
-                sourcePlane.y + 0.5,
-                aperture.sourceAnchor.z + cell.dz + 0.5,
-            )
-            val targetCenter = Vec3(
-                aperture.targetAnchor.x + cell.dx + 0.5,
-                targetPlane.y + 0.5,
-                aperture.targetAnchor.z + cell.dz + 0.5,
-            )
+            val source = worldCell(sourcePeriod, aperture.sourceAnchor, cell)
+            val target = worldCell(targetPeriod, aperture.targetAnchor, cell)
+            val sourceCenter = Vec3(source.x + 0.5, sourcePlane.y + 0.5, source.z + 0.5)
+            val targetCenter = Vec3(target.x + 0.5, targetPlane.y + 0.5, target.z + 0.5)
             materializeCellPair(
                 sourceLevel,
                 targetLevel,
@@ -80,16 +79,14 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         removeExisting(server, aperture.id)
         val deepLevel = server.level(aperture.deepDimension) ?: return
         val coreLevel = server.level(geometry.coreDimension) ?: return
+        val deepPeriod = manifest.period(aperture.deepDimension) ?: return
         val deepPlane = planes.singleOrNull { it.dimension == aperture.deepDimension && it.face == aperture.deepFace } ?: return
         val sourceOrientation = boundaryOrientation(aperture.deepFace)
 
         projection.mapping.forEach { (cell, coreCell) ->
             val targetBlock = coreResolver.blockPosition(geometry, coreCell) ?: return@forEach
-            val sourceCenter = Vec3(
-                aperture.deepAnchor.x + cell.dx + 0.5,
-                deepPlane.y + 0.5,
-                aperture.deepAnchor.z + cell.dz + 0.5,
-            )
+            val source = worldCell(deepPeriod, aperture.deepAnchor, cell)
+            val sourceCenter = Vec3(source.x + 0.5, deepPlane.y + 0.5, source.z + 0.5)
             val targetCenter = Vec3(targetBlock.x + 0.5, targetBlock.y + 0.5, targetBlock.z + 0.5)
             val targetOrientation = coreOrientation(coreCell.face, projection.rotationQuarterTurns)
             materializeCellPair(
@@ -135,7 +132,7 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
             level.getAllEntities()
                 .filterIsInstance<Portal>()
                 .filter { portal -> portal.portalTag == forwardTag || portal.portalTag == reverseTag }
-                .forEach(Portal::discard)
+                .forEach { portal -> portal.discard() }
         }
     }
 
@@ -157,6 +154,12 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         return multiply(faceRotation, inPlane)
     }
 }
+
+private fun UniverseGeometryManifest.period(dimension: DimensionId): HorizontalPeriod? =
+    layers.singleOrNull { it.dimension == dimension }?.period
+
+private fun worldCell(period: HorizontalPeriod, anchor: HorizontalPosition, cell: ApertureCell): HorizontalPosition =
+    HorizontalPosition(period.canonical(anchor.x + cell.dx), period.canonical(anchor.z + cell.dz))
 
 private fun axisAngle(x: Double, y: Double, z: Double, degrees: Double): DQuaternion {
     val half = Math.toRadians(degrees) / 2.0
