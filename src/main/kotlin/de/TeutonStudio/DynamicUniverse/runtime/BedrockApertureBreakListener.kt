@@ -15,17 +15,37 @@ object BedrockApertureRuntime {
     @Volatile
     private var bridge: ServerBedrockApertureBridge? = null
 
+    @Volatile
+    private var manifest: UniverseGeometryManifest? = null
+
     fun install(manifest: UniverseGeometryManifest, planes: Collection<BedrockBoundaryPlane>) {
+        this.manifest = manifest
         bridge = ServerBedrockApertureBridge(manifest, planes)
         AperturePortalRuntime.install(planes)
     }
 
     fun reconcile(server: MinecraftServer) {
         bridge?.reconcileCoreProjections(server)
+        val activeManifest = manifest ?: return
+        val save = BoundaryApertureSaveData.find(server) ?: return
+        save.pairedApertures().forEach { aperture ->
+            AperturePortalRuntime.rebuildPaired(server, activeManifest, aperture)
+        }
+        val resolver = PlanetCoreProjectionResolver()
+        activeManifest.planetCores.forEach { geometry ->
+            val apertures = save.coreApertures().filter { it.connectionId == geometry.connectionId }
+            val projections = resolver.resolve(geometry, apertures) ?: return@forEach
+            apertures.forEach { aperture ->
+                projections[aperture.id]?.let { projection ->
+                    AperturePortalRuntime.rebuildCore(server, activeManifest, geometry, aperture, projection)
+                }
+            }
+        }
     }
 
     fun clear() {
         bridge = null
+        manifest = null
         AperturePortalRuntime.clear()
     }
 
