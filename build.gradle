@@ -42,6 +42,29 @@ repositories {
     }
 }
 
+def aetherDevRuntimeSource = configurations.create('aetherDevRuntimeSource') {
+    canBeConsumed = false
+    canBeResolved = true
+    transitive = false
+}
+
+def patchedAetherDevRuntime = layout.buildDirectory.file(
+        "dev-runtime/aether-${aether_modrinth_maven_version}-devlaunch.jar"
+)
+
+def patchAetherDevRuntime = tasks.register('patchAetherDevRuntime', Exec) {
+    group = 'development setup'
+    description = 'Creates the project-local Aether copy required by ModDevGradle DevLaunch.'
+    inputs.files(aetherDevRuntimeSource)
+    inputs.file('scripts/patch_aether_devlaunch.py')
+    outputs.file(patchedAetherDevRuntime)
+    doFirst {
+        commandLine 'python3', 'scripts/patch_aether_devlaunch.py',
+                aetherDevRuntimeSource.singleFile.absolutePath,
+                patchedAetherDevRuntime.get().asFile.absolutePath
+    }
+}
+
 neoForge {
     version = project.neo_version
     parchment {
@@ -100,11 +123,26 @@ dependencies {
     runtimeOnly "maven.modrinth:zf4Szzx2:${immersive_portals_modrinth_maven_version}"
     // Required by the selected Immersive Portals runtime artifact.
     runtimeOnly "maven.modrinth:9s6osm5g:${cloth_config_modrinth_maven_version}"
+
+    // Optional dimension-integration targets, loaded automatically by runClient only.
+    compileOnly "maven.modrinth:YhmgMVyu:${aether_modrinth_maven_version}"
+    add('aetherDevRuntimeSource', "maven.modrinth:YhmgMVyu:${aether_modrinth_maven_version}")
+    runtimeOnly files(patchedAetherDevRuntime.map { it.asFile }) {
+        builtBy patchAetherDevRuntime
+    }
+    // Aether embeds Accessories, whose required owo dependency is not exposed by Modrinth Maven.
+    runtimeOnly "maven.modrinth:ccKDOlHs:${owo_lib_modrinth_maven_version}"
+    compileOnly "maven.modrinth:Ejfl5qDL:${undergarden_modrinth_maven_version}"
+    runtimeOnly "maven.modrinth:Ejfl5qDL:${undergarden_modrinth_maven_version}"
     compileOnly "dev.ryanhcode.sable:sable-common-${minecraft_version}:${sable_version}"
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit5:${kotlin_version}"
+}
+
+tasks.matching { it.name in ['prepareClientRun', 'writeClientLegacyClasspath', 'runClient'] }.configureEach {
+    dependsOn patchAetherDevRuntime
 }
 
 tasks.test { useJUnitPlatform() }
