@@ -82,30 +82,6 @@
         }
       }
     },
-    "dynamicuniverse:created/planet/0/0/0/deep_nether": {
-      "type": "minecraft:the_nether",
-      "generator": {
-        "type": "minecraft:noise",
-        "biome_source": {
-          "type": "minecraft:multi_noise",
-          "preset": "minecraft:nether"
-        },
-        "settings": "minecraft:nether"
-      }
-    },
-    "dynamicuniverse:created/planet/0/0/0/sky": {
-      "type": "minecraft:overworld",
-      "generator": {
-        "type": "minecraft:flat",
-        "settings": {
-          "biome": "minecraft:the_void",
-          "features": false,
-          "lakes": false,
-          "layers": [{ "block": "minecraft:air", "height": 1 }],
-          "structure_overrides": []
-        }
-      }
-    },
     "dynamicuniverse:created/universe": {
       "type": "minecraft:overworld",
       "generator": {

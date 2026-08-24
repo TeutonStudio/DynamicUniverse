@@ -37,12 +37,15 @@ data class UniverseLevelStemPlan(
             val planes = mutableListOf<BedrockBoundaryPlane>()
 
             manifest.layers.forEach { layer ->
-                val template = when (layer.role) {
+                val template = when {
+                    layer.dimension.value in EXTERNAL_DIMENSION_IDS -> UniverseStemTemplate.EXTERNAL
+                    else -> when (layer.role) {
                     PlanetDimensionRole.PLANET_CORE -> UniverseStemTemplate.CORE
                     PlanetDimensionRole.INNER -> UniverseStemTemplate.NETHER
                     PlanetDimensionRole.SURFACE,
                     PlanetDimensionRole.CUSTOM -> UniverseStemTemplate.OVERWORLD
                     PlanetDimensionRole.SKY -> UniverseStemTemplate.VOID
+                    }
                 }
                 templates.putIfAbsent(layer.dimension, template)
 
@@ -72,7 +75,8 @@ data class UniverseLevelStemPlan(
         const val NETHER_FLOOR_Y = 0
         const val NETHER_CEILING_Y = 127
         const val OVERWORLD_FLOOR_Y = -64
+        private val EXTERNAL_DIMENSION_IDS = setOf("aether:the_aether", "undergarden:undergarden")
     }
 }
 
-enum class UniverseStemTemplate { OVERWORLD, NETHER, CORE, VOID }
+enum class UniverseStemTemplate { OVERWORLD, NETHER, CORE, VOID, EXTERNAL }

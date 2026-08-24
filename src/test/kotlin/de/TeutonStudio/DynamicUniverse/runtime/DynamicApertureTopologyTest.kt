@@ -86,4 +86,34 @@ class DynamicApertureTopologyTest {
             assertTrue(cell.v in 3 until 61)
         }
     }
+
+    @Test
+    fun `several core-originated apertures retain their own shell anchors`() {
+        val geometry = PlanetCoreGeometry(
+            planetId = "terra",
+            connectionId = "terra/main/core-to-nether",
+            coreDimension = DimensionId("dynamicuniverse:terra/core"),
+            deepDimension = DimensionId("minecraft:the_nether"),
+            edgeBlocks = 32,
+            edgeMarginBlocks = 2,
+        )
+        fun aperture(id: String, sequence: Long, anchor: CoreShellCell) = CoreBoundaryAperture(
+            id = id,
+            connectionId = geometry.connectionId,
+            createdSequence = sequence,
+            planetId = geometry.planetId,
+            deepDimension = geometry.deepDimension,
+            deepFace = DimensionBoundaryFace.LOWER,
+            deepAnchor = HorizontalPosition(sequence, sequence),
+            coreAnchor = anchor,
+            coreRotationQuarterTurns = 0,
+        )
+        val first = aperture("aperture-1", 1, CoreShellCell(CoreShellFace.POSITIVE_X, 4, 4))
+        val second = aperture("aperture-2", 2, CoreShellCell(CoreShellFace.NEGATIVE_Z, 20, 20))
+
+        val projections = assertNotNull(PlanetCoreProjectionResolver().resolve(geometry, listOf(first, second)))
+
+        assertEquals(first.coreAnchor, projections.getValue(first.id).mapping.getValue(ApertureCell(0, 0)))
+        assertEquals(second.coreAnchor, projections.getValue(second.id).mapping.getValue(ApertureCell(0, 0)))
+    }
 }

@@ -46,10 +46,10 @@ object UniverseDefaultWorldType {
         id = "main",
         layersInnerToOuter = listOf(
             layer("core", PlanetDimensionRole.PLANET_CORE, "dynamicuniverse:created/planet/0/0/0/core", 8, null, BoundarySurface.BEDROCK),
-            layer("deep_nether", PlanetDimensionRole.INNER, "dynamicuniverse:created/planet/0/0/0/deep_nether", 8, BoundarySurface.BEDROCK, BoundarySurface.BEDROCK),
             layer("nether", PlanetDimensionRole.INNER, "minecraft:the_nether", 8, BoundarySurface.BEDROCK, BoundarySurface.BEDROCK),
-            layer("surface", PlanetDimensionRole.SURFACE, "minecraft:overworld", 8, BoundarySurface.BEDROCK, BoundarySurface.AIR),
-            layer("sky", PlanetDimensionRole.SKY, "dynamicuniverse:created/planet/0/0/0/sky", null, BoundarySurface.AIR, BoundarySurface.AIR),
+            layer("underground", PlanetDimensionRole.INNER, "undergarden:undergarden", 8, BoundarySurface.BEDROCK, BoundarySurface.BEDROCK),
+            layer("overworld", PlanetDimensionRole.SURFACE, "minecraft:overworld", 8, BoundarySurface.BEDROCK, BoundarySurface.AIR),
+            layer("aether", PlanetDimensionRole.SKY, "aether:the_aether", null, BoundarySurface.AIR, BoundarySurface.AIR),
         ),
     )
 

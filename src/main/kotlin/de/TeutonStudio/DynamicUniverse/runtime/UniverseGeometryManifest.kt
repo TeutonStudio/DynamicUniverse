@@ -13,8 +13,6 @@ import de.TeutonStudio.DynamicUniverse.worldtype.IsolatedUniverseDefinition
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionRole
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionStack
 import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
-import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlin.math.PI
 
 /** Persist this logical graph, not incidental Immersive Portals entity UUIDs. */
@@ -59,7 +57,7 @@ data class PlanetCoreGeometry(
     val edgeMarginBlocks: Int = 2,
 ) {
     init {
-        require(edgeBlocks >= 16L) { "Planet-core edge must be at least one chunk." }
+        require(edgeBlocks >= 8L) { "Planet-core edge must be at least eight blocks." }
         require(edgeMarginBlocks >= 1) { "Planet-core apertures need a positive edge margin." }
         require(edgeBlocks > edgeMarginBlocks * 2L) { "Planet-core edge margin consumes the whole face." }
     }
@@ -89,7 +87,10 @@ object UniverseGeometryCompiler {
                     airBuffers += stack.airBuffers()
                 }
                 group.allPlanets().forEach { planet ->
-                    val basePeriod = corePeriod(planet.planetCoreSize)
+                    // The configured value is the physical cube edge in blocks. Horizontal
+                    // topology may be rounded to chunks, but the shell must never be.
+                    val coreEdge = coreEdgeBlocks(planet.planetCoreSize)
+                    val basePeriod = chunkAlignedPeriod(coreEdge)
                     planet.stacks.forEach { stack ->
                         layers += stack.layers(basePeriod, planet.id)
                         airBuffers += stack.airBuffers()
@@ -101,7 +102,7 @@ object UniverseGeometryCompiler {
                                 connectionId = "${planet.id}/${stack.id}/${core.id}-to-${deep.id}",
                                 coreDimension = core.dimension,
                                 deepDimension = deep.dimension,
-                                edgeBlocks = basePeriod,
+                                edgeBlocks = coreEdge,
                             )
                         }
                     }
@@ -140,10 +141,15 @@ object UniverseGeometryCompiler {
         }
         .map { (lower, upper) -> AirBoundaryBuffer(lower.dimension, upper.dimension) }
 
-    private fun corePeriod(coreSize: Double): Long {
-        val rounded = BigDecimal.valueOf(coreSize).setScale(0, RoundingMode.CEILING).longValueExact()
-        return Math.multiplyExact(rounded, 16L)
+    private fun coreEdgeBlocks(coreSize: Double): Long {
+        require(coreSize.isFinite() && coreSize > 0.0) { "Planet-core edge must be finite and positive." }
+        val edge = coreSize.toLong()
+        require(edge.toDouble() == coreSize) { "Planet-core edge must be an exact block count." }
+        return edge
     }
+
+    private fun chunkAlignedPeriod(edgeBlocks: Long): Long =
+        Math.multiplyExact(Math.addExact(edgeBlocks, 15L) / 16L, 16L)
 
     private fun scalePeriod(period: HorizontalPeriod, scale: DimensionScale): HorizontalPeriod {
         val scaled = java.math.BigInteger.valueOf(period.blocks).multiply(java.math.BigInteger.valueOf(scale.numerator))

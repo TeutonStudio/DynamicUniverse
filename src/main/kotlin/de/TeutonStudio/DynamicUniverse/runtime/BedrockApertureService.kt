@@ -42,6 +42,9 @@ class ServerBedrockApertureBridge(
     fun prepareBedrockBreak(sourceLevel: ServerLevel, sourcePos: BlockPos): BedrockBreakPreparation {
         if (!sourceLevel.getBlockState(sourcePos).`is`(Blocks.BEDROCK)) return BedrockBreakPreparation.Ignored
         val dimension = DimensionId(sourceLevel.dimension().location().toString())
+        manifest.planetCores.singleOrNull { it.coreDimension == dimension }?.let { geometry ->
+            return prepareCoreShellBreak(sourceLevel, sourcePos, geometry)
+        }
         val resolved = resolveBoundary(dimension, sourcePos.y) ?: return BedrockBreakPreparation.Ignored
         val core = coreByConnection[resolved.connection.id]
         return if (core != null) {
@@ -49,6 +52,73 @@ class ServerBedrockApertureBridge(
             else prepareCoreBreak(sourceLevel, sourcePos, resolved, core)
         } else {
             preparePairedBreak(sourceLevel, sourcePos, resolved)
+        }
+    }
+
+    /**
+     * A core shell has six faces rather than one horizontal Bedrock plane. A non-edge shell
+     * cell may therefore create an independent opening with a deterministic free counterpart
+     * on the core-adjacent layer.
+     */
+    private fun prepareCoreShellBreak(
+        coreLevel: ServerLevel,
+        sourcePos: BlockPos,
+        geometry: PlanetCoreGeometry,
+    ): BedrockBreakPreparation {
+        val coreCell = coreResolver.cellAt(geometry, sourcePos) ?: return BedrockBreakPreparation.Ignored
+        val edge = geometry.edgeBlocks.toInt()
+        val margin = geometry.edgeMarginBlocks
+        if (coreCell.u !in margin until edge - margin || coreCell.v !in margin until edge - margin) {
+            return BedrockBreakPreparation.Rejected("Planet-core apertures cannot start at a shell edge.")
+        }
+        val connection = manifest.links.singleOrNull { it.id == geometry.connectionId }
+            ?: return BedrockBreakPreparation.Rejected("Missing planet-core connection.")
+        val deepPlane = planeByEndpoint[geometry.deepDimension to connection.targetBoundaryFace]
+            ?: return BedrockBreakPreparation.Rejected("Missing deep-layer Bedrock plane.")
+        val deepPeriod = periodByDimension[geometry.deepDimension]
+            ?: return BedrockBreakPreparation.Rejected("Missing deep-layer toroidal period.")
+        val deepLevel = coreLevel.server.level(geometry.deepDimension)
+            ?: return BedrockBreakPreparation.Rejected("Deep-layer dimension is not loaded.")
+        val save = BoundaryApertureSaveData.forServer(coreLevel.server)
+        val oldApertures = save.coreApertures().filter { it.connectionId == geometry.connectionId }
+        val (id, sequence) = save.allocateIdentity()
+        val deepAnchor = availableDeepAnchor(deepPeriod, oldApertures, "$id|${coreCell.face}|${coreCell.u}|${coreCell.v}")
+            ?: return BedrockBreakPreparation.Rejected("No free deep-layer anchor is available for this core aperture.")
+        val aperture = CoreBoundaryAperture(
+            id = id,
+            connectionId = geometry.connectionId,
+            createdSequence = sequence,
+            planetId = geometry.planetId,
+            deepDimension = geometry.deepDimension,
+            deepFace = connection.targetBoundaryFace,
+            deepAnchor = deepAnchor,
+            coreAnchor = coreCell,
+            coreRotationQuarterTurns = 0,
+        )
+        val nextApertures = oldApertures + aperture
+        val nextProjection = coreResolver.resolve(geometry, nextApertures)
+            ?: return BedrockBreakPreparation.Rejected("No edge-safe core projection is available for this opening.")
+        val deepPos = deepAnchor.toBlockPos(deepPlane.y)
+            ?: return BedrockBreakPreparation.Rejected("Deep-layer anchor is outside Minecraft BlockPos range.")
+        if (!deepLevel.getBlockState(deepPos).`is`(Blocks.BEDROCK)) {
+            return BedrockBreakPreparation.Rejected("Mapped deep-layer counterpart is not Bedrock.")
+        }
+        return BedrockBreakPreparation.Accepted {
+            atomicBlockChange(
+                listOf(
+                    BlockMutation(coreLevel, sourcePos, coreLevel.getBlockState(sourcePos), Blocks.AIR.defaultBlockState()),
+                    BlockMutation(deepLevel, deepPos, deepLevel.getBlockState(deepPos), Blocks.AIR.defaultBlockState()),
+                ),
+            ) {
+                save.put(aperture)
+                AperturePortalRuntime.rebuildCore(
+                    coreLevel.server,
+                    manifest,
+                    geometry,
+                    aperture,
+                    requireNotNull(nextProjection[aperture.id]),
+                )
+            }
         }
     }
 
@@ -352,6 +422,20 @@ class ServerBedrockApertureBridge(
         }
         return result
     }
+
+    private fun availableDeepAnchor(
+        period: HorizontalPeriod,
+        existing: Collection<CoreBoundaryAperture>,
+        key: String,
+    ): HorizontalPosition? = (0 until 4096).asSequence().mapNotNull { attempt ->
+        val x = Math.floorMod("$key|x|$attempt".hashCode().toLong(), period.blocks)
+        val z = Math.floorMod("$key|z|$attempt".hashCode().toLong(), period.blocks)
+        period.canonical(HorizontalPosition(x, z)).takeIf { candidate ->
+            existing.none { aperture ->
+                aperture.shape.cells.any { cell -> period.apply(aperture.deepAnchor, cell) == candidate }
+            }
+        }
+    }.firstOrNull()
 }
 
 private data class ResolvedBoundary(

@@ -9,13 +9,13 @@ import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
 
 class UniverseWorldCreationDraftTest {
     @Test
-    fun `default Terra stack is a valid core to sky sequence`() {
+    fun `default Terra stack is the configured core to Aether sequence`() {
         val planet = EditablePlanet.default()
 
         assertEquals(CelestialBodyKind.PLANET, planet.bodyKind)
         assertEquals(8, planet.radialScale)
         assertEquals(
-            listOf("Planetenkern", "Tiefer Nether", "Nether", "Oberwelt", "Himmel"),
+            listOf("Planetenkern", "Nether", "Underground", "Oberwelt", "Aether"),
             planet.dimensions.map(EditableDimension::displayName),
         )
         assertTrue(planet.dimensionValidation.isValid)
@@ -65,17 +65,17 @@ class UniverseWorldCreationDraftTest {
 
     @Test
     fun `discovered unresolved dimensions are selectable but block world creation`() {
-        val aether = PlanetDimensionCatalog.discovered("aether:the_aether", "Aether")
-        val catalog = PlanetDimensionCatalog(PlanetDimensionCatalog.standard.selectable() + aether)
+        val unresolved = PlanetDimensionCatalog.discovered("test:unresolved_sky", "Unresolved sky")
+        val catalog = PlanetDimensionCatalog(PlanetDimensionCatalog.standard.selectable() + unresolved)
         PlanetDimensionCatalogs.install(catalog)
         try {
-            val selected = EditablePlanet.default().replaceDimension(EditablePlanet.default().dimensions.lastIndex, aether.id)
+            val selected = EditablePlanet.default().replaceDimension(EditablePlanet.default().dimensions.lastIndex, unresolved.id)
 
-            assertTrue(aether.isSelectable)
-            assertTrue(aether.blocksWorldCreation)
-            assertEquals(DimensionCatalogStatus.DISCOVERED, catalog.require(aether.id).catalogStatus)
+            assertTrue(unresolved.isSelectable)
+            assertTrue(unresolved.blocksWorldCreation)
+            assertEquals(DimensionCatalogStatus.DISCOVERED, catalog.require(unresolved.id).catalogStatus)
             assertFalse(selected.dimensionValidation.isValid)
-            assertEquals(listOf(aether.id), selected.dimensionValidation.unresolvedDimensions.map(EditableDimension::descriptorId))
+            assertEquals(listOf(unresolved.id), selected.dimensionValidation.unresolvedDimensions.map(EditableDimension::descriptorId))
         } finally {
             PlanetDimensionCatalogs.resetForTests()
         }
@@ -116,9 +116,9 @@ class UniverseWorldCreationDraftTest {
         val planet = EditablePlanet.default()
         val surfaceIndex = planet.dimensions.indexOfFirst { it.role == EditableDimensionRole.SURFACE }
 
-        assertEquals(java.math.BigInteger.valueOf(262_144L), DimensionStackMetrics.periodAt(planet, surfaceIndex))
-        assertEquals(java.math.BigInteger.valueOf(68_719_476_736L), DimensionStackMetrics.uniqueAreaAt(planet, surfaceIndex))
-        assertTrue(requireNotNull(DimensionStackMetrics.equivalentSurfaceRadiusBlocks(planet, surfaceIndex)) > 70_000)
+        assertEquals(java.math.BigInteger.valueOf(16_384L), DimensionStackMetrics.periodAt(planet, surfaceIndex))
+        assertEquals(java.math.BigInteger.valueOf(268_435_456L), DimensionStackMetrics.uniqueAreaAt(planet, surfaceIndex))
+        assertTrue(requireNotNull(DimensionStackMetrics.equivalentSurfaceRadiusBlocks(planet, surfaceIndex)) > 4_000)
     }
 
     @Test

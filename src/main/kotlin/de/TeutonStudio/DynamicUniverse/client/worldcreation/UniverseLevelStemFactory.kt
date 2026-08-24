@@ -50,7 +50,7 @@ object UniverseLevelStemFactory {
             // The data preset already supplies stems for the default Universe. Preserve those
             // distinct instances: assigning one LevelStem to multiple keys makes bake() reject
             // the registry. New dimensions receive a registry-aware decoded copy instead.
-            if (key !in dimensions) {
+            if (key !in dimensions && template != UniverseStemTemplate.EXTERNAL) {
                 dimensions[key] = copyStem(registries, requireNotNull(templateSources[template]))
             }
         }
@@ -77,5 +77,5 @@ object UniverseLevelStemFactory {
     )
 
     private const val DEFAULT_CORE_TEMPLATE = "dynamicuniverse:created/planet/0/0/0/core"
-    private const val DEFAULT_VOID_TEMPLATE = "dynamicuniverse:created/planet/0/0/0/sky"
+    private const val DEFAULT_VOID_TEMPLATE = "dynamicuniverse:created/universe"
 }

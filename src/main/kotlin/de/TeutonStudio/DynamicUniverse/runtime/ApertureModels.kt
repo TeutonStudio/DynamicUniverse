@@ -49,8 +49,17 @@ data class CoreBoundaryAperture(
     val deepDimension: DimensionId,
     val deepFace: DimensionBoundaryFace,
     val deepAnchor: HorizontalPosition,
+    /** Core-originated records retain their concrete shell anchor. */
+    val coreAnchor: CoreShellCell? = null,
+    val coreRotationQuarterTurns: Int? = null,
     override val shape: ApertureShape = ApertureShape.SINGLE,
-) : PersistedBoundaryAperture
+) : PersistedBoundaryAperture {
+    init {
+        require((coreAnchor == null) == (coreRotationQuarterTurns == null)) {
+            "A core aperture needs both a shell anchor and a rotation, or neither."
+        }
+    }
+}
 
 internal fun HorizontalPeriod.canonical(position: HorizontalPosition): HorizontalPosition =
     HorizontalPosition(canonical(position.x), canonical(position.z))

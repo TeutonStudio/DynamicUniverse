@@ -85,6 +85,12 @@ private fun CoreBoundaryAperture.toTag(): CompoundTag = CompoundTag().apply {
     putString("deepDimension", this@toTag.deepDimension.value)
     putString("deepFace", this@toTag.deepFace.name)
     put("deepAnchor", this@toTag.deepAnchor.toTag())
+    coreAnchor?.let { anchor ->
+        putString("coreFace", anchor.face.name)
+        putInt("coreU", anchor.u)
+        putInt("coreV", anchor.v)
+        putInt("coreRotation", requireNotNull(coreRotationQuarterTurns))
+    }
     put("shape", this@toTag.shape.toTag())
 }
 
@@ -105,6 +111,10 @@ private fun CompoundTag.toCoreAperture() = CoreBoundaryAperture(
     deepDimension = DimensionId(getString("deepDimension")),
     deepFace = DimensionBoundaryFace.valueOf(getString("deepFace")),
     deepAnchor = getCompound("deepAnchor").toHorizontalPosition(),
+    coreAnchor = getString("coreFace").takeIf(String::isNotBlank)?.let { face ->
+        CoreShellCell(CoreShellFace.valueOf(face), getInt("coreU"), getInt("coreV"))
+    },
+    coreRotationQuarterTurns = getString("coreFace").takeIf(String::isNotBlank)?.let { getInt("coreRotation") },
     shape = getList("shape", Tag.TAG_COMPOUND.toInt()).toApertureShape(),
 )
 

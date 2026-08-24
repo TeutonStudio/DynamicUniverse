@@ -18,9 +18,10 @@ object PlanetCoreShellMaterializer {
     }
 
     fun materialize(chunk: ChunkAccess, geometry: PlanetCoreGeometry, openings: Set<BlockPos>) {
-        val half = geometry.edgeBlocks.toInt() / 2
-        val min = -half
-        val max = half - 1
+        val edge = geometry.edgeBlocks.toInt()
+        // This interval contains exactly edge coordinates for even and odd sizes.
+        val min = -(edge / 2)
+        val max = min + edge - 1
         val minY = chunk.minBuildHeight.coerceAtLeast(min)
         val maxY = (chunk.minBuildHeight + chunk.height - 1).coerceAtMost(max)
         if (minY > maxY) return

@@ -14,17 +14,19 @@ class UniverseLevelStemPlanTest {
     }
 
     @Test
-    fun `default Terra plan installs core deep nether and every verified Bedrock plane`() {
+    fun `default Terra plan keeps optional layers external and declares every verified Bedrock plane`() {
         val plan = UniverseWorldCreationDraft().toLevelStemPlan()
 
         assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("dynamicuniverse:created/planet/0/0/0/core")))
-        assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("dynamicuniverse:created/planet/0/0/0/deep_nether")))
+        assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("minecraft:the_nether")))
+        assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("undergarden:undergarden")))
         assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("minecraft:overworld")))
+        assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("aether:the_aether")))
         assertTrue(plan.templates.containsKey(de.TeutonStudio.DynamicUniverse.dimension.DimensionId("dynamicuniverse:created/universe")))
 
         val corePlanes = plan.bedrockPlanes.filter { it.dimension.value == "dynamicuniverse:created/planet/0/0/0/core" }
         assertTrue(corePlanes.isEmpty())
-        val deepPlanes = plan.bedrockPlanes.filter { it.dimension.value.endsWith("/deep_nether") }
-        assertEquals(setOf(DimensionBoundaryFace.LOWER, DimensionBoundaryFace.UPPER), deepPlanes.map { it.face }.toSet())
+        val netherPlanes = plan.bedrockPlanes.filter { it.dimension.value == "minecraft:the_nether" }
+        assertEquals(setOf(DimensionBoundaryFace.LOWER, DimensionBoundaryFace.UPPER), netherPlanes.map { it.face }.toSet())
     }
 }

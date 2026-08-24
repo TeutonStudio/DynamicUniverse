@@ -76,6 +76,8 @@ private fun EditableDimensionStack.toStack(path: String, name: String, factor: I
                 dimension = when {
                     isPrimarySpawnPlanet && layer.descriptorId == PlanetDimensionCatalog.OVERWORLD_ID -> DimensionId("minecraft:overworld")
                     isPrimarySpawnPlanet && layer.descriptorId == PlanetDimensionCatalog.NETHER_ID -> DimensionId("minecraft:the_nether")
+                    isPrimarySpawnPlanet && layer.descriptorId == PlanetDimensionCatalog.UNDERGROUND_ID -> DimensionId(PlanetDimensionCatalog.UNDERGROUND_ID)
+                    isPrimarySpawnPlanet && layer.descriptorId == PlanetDimensionCatalog.AETHER_ID -> DimensionId(PlanetDimensionCatalog.AETHER_ID)
                     else -> DimensionId("dynamicuniverse:created/$path/${layer.id}")
                 },
                 toOuterScale = if (index == layers.lastIndex) null else DimensionScale(factor.toLong()),

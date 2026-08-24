@@ -27,7 +27,7 @@
   "dynamicuniverse.planet_config.layers": "Dimensionen zwischen All und Planetenkern",
   "dynamicuniverse.planet_config.transition_factor": "Reise-Faktor nach außen",
   "dynamicuniverse.planet_config.body_kind": "Körperklasse und Faktor nach außen",
-  "dynamicuniverse.planet_config.core_size": "Planetenkern-Größe",
+  "dynamicuniverse.planet_config.core_size": "Planetenkern-Kantenlänge (Blöcke)",
   "dynamicuniverse.planet_config.add_dimension": "Dimension hinzufügen",
   "dynamicuniverse.planet_config.move_up": "Nach innen",
   "dynamicuniverse.planet_config.move_down": "Nach außen",
