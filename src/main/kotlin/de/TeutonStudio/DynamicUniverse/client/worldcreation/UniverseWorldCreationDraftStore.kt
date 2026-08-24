@@ -26,7 +26,7 @@ object UniverseWorldCreationDraftStore {
      */
     fun prepareServerCreation(screen: CreateWorldScreen) {
         val plan = get(screen).toLevelStemPlan()
-        screen.uiState.updateDimensions { _, dimensions -> UniverseLevelStemFactory.install(dimensions, plan) }
+        screen.uiState.updateDimensions { registries, dimensions -> UniverseLevelStemFactory.install(registries, dimensions, plan) }
         UniverseWorldCreationSession.arm(screen.uiState.targetFolder, plan)
     }
 }

@@ -1,18 +1,21 @@
 package de.TeutonStudio.DynamicUniverse.client.worldcreation
 
+import com.mojang.serialization.JsonOps
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.DynamicUniverse
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseLevelStemPlan
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseStemTemplate
+import net.minecraft.core.RegistryAccess
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.resources.RegistryOps
 import net.minecraft.world.level.dimension.LevelStem
 import net.minecraft.world.level.levelgen.WorldDimensions
 
 /** Installs all dynamic level stems while the Create World screen can still alter WorldDimensions. */
 object UniverseLevelStemFactory {
-    fun install(base: WorldDimensions, plan: UniverseLevelStemPlan): WorldDimensions {
+    fun install(registries: RegistryAccess.Frozen, base: WorldDimensions, plan: UniverseLevelStemPlan): WorldDimensions {
         val dimensions = base.dimensions.toMutableMap()
         val overworld = requireNotNull(dimensions[LevelStem.OVERWORLD]) {
             "The selected world preset has no Overworld generator."
@@ -27,6 +30,13 @@ object UniverseLevelStemFactory {
             "The selected Universe preset has no void generator template."
         }
 
+        val templateSources = mapOf(
+            UniverseStemTemplate.OVERWORLD to overworld,
+            UniverseStemTemplate.NETHER to nether,
+            UniverseStemTemplate.CORE to core,
+            UniverseStemTemplate.VOID to void,
+        )
+
         // Replace the preset's default generated layers when the editor produced a different
         // universe. Leaving them in would create unreferenced, permanently loaded levels.
         val plannedKeys = plan.templates.keys.mapTo(mutableSetOf(), ::levelStemKey)
@@ -36,14 +46,29 @@ object UniverseLevelStemFactory {
         }
 
         plan.templates.forEach { (dimension, template) ->
-            dimensions[levelStemKey(dimension)] = when (template) {
-                UniverseStemTemplate.OVERWORLD -> overworld
-                UniverseStemTemplate.NETHER -> nether
-                UniverseStemTemplate.CORE -> core
-                UniverseStemTemplate.VOID -> void
+            val key = levelStemKey(dimension)
+            // The data preset already supplies stems for the default Universe. Preserve those
+            // distinct instances: assigning one LevelStem to multiple keys makes bake() reject
+            // the registry. New dimensions receive a registry-aware decoded copy instead.
+            if (key !in dimensions) {
+                dimensions[key] = copyStem(registries, requireNotNull(templateSources[template]))
             }
         }
+        check(dimensions.values.toSet().size == dimensions.size) {
+            "Universe level-stem installation produced duplicate LevelStem values."
+        }
         return WorldDimensions(dimensions)
+    }
+
+    /** Decodes through registry-aware codecs to obtain a generator instance independent of its template. */
+    private fun copyStem(registries: RegistryAccess.Frozen, template: LevelStem): LevelStem {
+        val ops = RegistryOps.create(JsonOps.INSTANCE, registries)
+        val encoded = LevelStem.CODEC.encodeStart(ops, template).getOrThrow { message ->
+            throw IllegalStateException("Cannot encode a Universe level-stem template: $message")
+        }
+        return LevelStem.CODEC.parse(ops, encoded).getOrThrow { message ->
+            throw IllegalStateException("Cannot decode a Universe level-stem template: $message")
+        }
     }
 
     private fun levelStemKey(dimension: DimensionId): ResourceKey<LevelStem> = ResourceKey.create(
