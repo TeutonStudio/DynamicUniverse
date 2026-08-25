@@ -3,18 +3,13 @@ package de.TeutonStudio.DynamicUniverse.compat.immersiveportals
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseGeometryManifest
 import de.TeutonStudio.DynamicUniverse.runtime.VerticalBoundaryPortalAdapter
-import net.minecraft.core.Direction
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.phys.AABB
-import net.minecraft.world.phys.Vec3
-import qouteall.imm_ptl.core.api.PortalAPI
-import qouteall.imm_ptl.core.portal.Portal
 import qouteall.imm_ptl.core.portal.global_portals.GlobalPortalStorage
-import qouteall.q_misc_util.my_util.DQuaternion
+import qouteall.imm_ptl.core.portal.global_portals.VerticalConnectingPortal
 
 /**
  * One global horizontal portal covers each practical world border. It keeps the vertical
@@ -46,8 +41,8 @@ class ImmersivePortalVerticalBoundaryAdapter : VerticalBoundaryPortalAdapter {
             val tag = "$TAG_PREFIX/seam/${seam.id}"
             removeTagged(lower, tag)
             removeTagged(upper, tag)
-            addPortal(lower, Direction.UP, lower.maxBuildHeight - INSET, upper, upper.minBuildHeight + INSET, "$tag/up")
-            addPortal(upper, Direction.DOWN, upper.minBuildHeight + INSET, lower, lower.maxBuildHeight - INSET, "$tag/down")
+            addPortal(lower, VerticalConnectingPortal.ConnectorType.ceil, upper, "$tag/up")
+            addPortal(upper, VerticalConnectingPortal.ConnectorType.floor, lower, "$tag/down")
             handled += seam.lowerDimension
             handled += seam.upperDimension
         }
@@ -59,34 +54,30 @@ class ImmersivePortalVerticalBoundaryAdapter : VerticalBoundaryPortalAdapter {
     }
 
     private fun addLoop(level: ServerLevel, tag: String) {
-        addPortal(level, Direction.UP, level.maxBuildHeight - INSET, level, level.minBuildHeight + INSET, "$tag/up")
-        addPortal(level, Direction.DOWN, level.minBuildHeight + INSET, level, level.maxBuildHeight - INSET, "$tag/down")
+        addPortal(level, VerticalConnectingPortal.ConnectorType.ceil, level, "$tag/up")
+        addPortal(level, VerticalConnectingPortal.ConnectorType.floor, level, "$tag/down")
     }
 
     private fun addPortal(
         source: ServerLevel,
-        direction: Direction,
-        sourceY: Int,
+        connector: VerticalConnectingPortal.ConnectorType,
         target: ServerLevel,
-        targetY: Int,
         tag: String,
     ) {
-        val portal = Portal(Portal.ENTITY_TYPE, source)
-        PortalAPI.setPortalOrthodoxShape(
-            portal,
-            direction,
-            AABB(-HALF_WIDTH, sourceY.toDouble(), -HALF_WIDTH, HALF_WIDTH, sourceY.toDouble(), HALF_WIDTH),
-        )
-        PortalAPI.setPortalTransformation(
-            portal,
-            target.dimension(),
-            Vec3(0.0, targetY.toDouble(), 0.0),
-            DQuaternion.identity,
+        val portal = VerticalConnectingPortal.createConnectingPortal(
+            source,
+            connector,
+            target,
             1.0,
+            false,
+            0.0,
+            source.minBuildHeight,
+            source.maxBuildHeight,
+            target.minBuildHeight,
+            target.maxBuildHeight,
         )
-        portal.setTeleportChangesScale(false)
         portal.portalTag = tag
-        PortalAPI.addGlobalPortal(source, portal)
+        GlobalPortalStorage.get(source).addPortal(portal)
     }
 
     private fun removeTagged(level: ServerLevel, tagPrefix: String = TAG_PREFIX) {
@@ -101,7 +92,5 @@ class ImmersivePortalVerticalBoundaryAdapter : VerticalBoundaryPortalAdapter {
 
     companion object {
         private const val TAG_PREFIX = "dynamicuniverse:vertical-boundary"
-        private const val INSET = 1
-        private const val HALF_WIDTH = 29_999_984.0
     }
 }
