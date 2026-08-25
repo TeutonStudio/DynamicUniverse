@@ -1,6 +1,5 @@
 package de.TeutonStudio.DynamicUniverse.runtime
 
-import de.TeutonStudio.DynamicUniverse.cosmos.PlanetFrame
 import de.TeutonStudio.DynamicUniverse.cosmos.UniverseFrame
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnection
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
@@ -24,13 +23,15 @@ data class UniverseGeometryManifest(
     val layers: List<LayerGeometry>,
     val airBuffers: List<AirBoundaryBuffer>,
     val links: List<DimensionConnection>,
-    val planetFrames: List<PlanetFrame>,
+    /** Immutable local-space identities. Their anchors/velocities belong to UniverseRuntimeState. */
+    val planetSpaces: List<PlanetSpaceGeometry>,
     val isolatedUniverses: List<IsolatedUniverseDefinition>,
     val planetCores: List<PlanetCoreGeometry> = emptyList(),
 ) {
     init {
         require(layers.map(LayerGeometry::dimension).distinct().size == layers.size) { "A level may only bind one layer." }
         require(links.map(DimensionConnection::id).distinct().size == links.size) { "Logical link ids must be unique." }
+        require(planetSpaces.map(PlanetSpaceGeometry::planetId).distinct().size == planetSpaces.size) { "A planet may only bind one local space." }
         require(planetCores.map(PlanetCoreGeometry::coreDimension).distinct().size == planetCores.size) {
             "A planet-core dimension may only belong to one core geometry."
         }
@@ -41,6 +42,10 @@ data class UniverseGeometryManifest(
         /** Keeps rendered stack layers well outside the tallest generated dimension. */
         const val RENDER_LAYER_SPACING_BLOCKS = 4096
     }
+}
+
+data class PlanetSpaceGeometry(val planetId: String, val localSpaceId: String) {
+    init { require(planetId.isNotBlank() && localSpaceId.isNotBlank()) }
 }
 
 data class LayerGeometry(
@@ -87,7 +92,7 @@ object UniverseGeometryCompiler {
     fun compile(worldType: UniverseWorldType): UniverseGeometryManifest {
         val layers = mutableListOf<LayerGeometry>()
         val airBuffers = mutableListOf<AirBoundaryBuffer>()
-        val frames = mutableListOf<PlanetFrame>()
+        val spaces = mutableListOf<PlanetSpaceGeometry>()
         val cores = mutableListOf<PlanetCoreGeometry>()
         worldType.galaxies.forEach { galaxy ->
             galaxy.groups.forEach { group ->
@@ -112,12 +117,7 @@ object UniverseGeometryCompiler {
                             )
                         }
                     }
-                    frames += PlanetFrame(
-                        id = "${planet.id}:frame",
-                        universeFrame = UniverseFrame(worldType.universeDimension.value),
-                        anchor = SpatialPosition.ZERO,
-                        velocity = SpatialVelocity(0.0, 0.0, 0.0),
-                    )
+                    spaces += PlanetSpaceGeometry(planet.id, "${planet.id}:local")
                 }
             }
         }
@@ -126,7 +126,7 @@ object UniverseGeometryCompiler {
             layers = layers,
             airBuffers = airBuffers,
             links = worldType.connectionGraph().allRoutes().filterNot { it.id.endsWith(":reverse") },
-            planetFrames = frames,
+            planetSpaces = spaces,
             isolatedUniverses = worldType.isolatedUniverses,
             planetCores = cores,
         )
