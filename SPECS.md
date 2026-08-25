@@ -26,9 +26,9 @@ Sable 2.0.3 is optional. `compat.sable.SableUniverseBridge` contains no direct S
 
 ## Vertical dimension seams
 
-The End is an isolated vertical loop: crossing its real lower or upper build-height bound immediately re-enters at the opposite bound without altering X/Z, velocity or passenger ownership. This is a same-level loop and therefore intentionally not a `DimensionConnection`.
+The End and the technical All host are isolated vertical loops: crossing either real build-height bound immediately re-enters at the opposite bound without altering X/Z, velocity or passenger ownership. This prevents a host entity from ever falling out of the finite Minecraft implementation of `All`; it is intentionally not a `DimensionConnection`.
 
-`VerticalDimensionSeam` models cross-level air seams separately from radial planet stacks. The built-in optional seam maps the top of `minecraft:overworld` to the bottom of `aether:the_aether`; falling through the Aether bottom returns to the Overworld top. It becomes active only when the Aether level exists, preserving normal worlds without Aether. External Aether stems remain supplied by Aether itself and are never replaced with cloned vanilla worldgen.
+`VerticalDimensionSeam` models cross-level air seams separately from radial planet stacks. The built-in optional seam maps the top of `minecraft:overworld` to the bottom of `aether:the_aether`; falling through the Aether bottom returns to the Overworld top. It becomes active only when the Aether level exists, preserving normal worlds without Aether. With Immersive Portals installed, each active boundary is a persistent global horizontal portal spanning the practical world border, so the adjoining world is visible and crosses without a loading screen. Without it, the server-side transition listener retains equivalent topology as a compatibility fallback. External Aether stems remain supplied by Aether itself and are never replaced with cloned vanilla worldgen.
 
 ## Universe world type foundation
 

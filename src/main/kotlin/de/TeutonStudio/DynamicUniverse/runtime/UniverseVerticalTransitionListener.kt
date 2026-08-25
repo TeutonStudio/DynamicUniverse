@@ -26,6 +26,7 @@ object UniverseVerticalTransitionListener {
     fun beforeEntityTick(event: EntityTickEvent.Pre) {
         val entity = event.entity
         val level = entity.level() as? ServerLevel ?: return
+        if (VerticalBoundaryPortalRuntime.usesPortal(DimensionId(level.dimension().location().toString()))) return
         val velocity = entity.deltaMovement
         if (velocity.y == 0.0) return
         transition(entity, level, entity.y + velocity.y)
@@ -35,6 +36,7 @@ object UniverseVerticalTransitionListener {
     fun afterEntityTick(event: EntityTickEvent.Post) {
         val entity = event.entity
         val level = entity.level() as? ServerLevel ?: return
+        if (VerticalBoundaryPortalRuntime.usesPortal(DimensionId(level.dimension().location().toString()))) return
         transition(entity, level, entity.y)
     }
 

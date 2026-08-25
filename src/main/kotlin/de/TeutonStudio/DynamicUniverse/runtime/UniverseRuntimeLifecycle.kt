@@ -19,7 +19,7 @@ object UniverseRuntimeLifecycle {
 
     @SubscribeEvent
     fun onServerStopping(event: ServerStoppingEvent) {
-        UniverseWorldCreationBridge.clear()
+        UniverseWorldCreationBridge.clear(event.server)
         UniverseWorldCreationSession.clear()
     }
 }

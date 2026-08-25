@@ -21,6 +21,14 @@ class VerticalDimensionTraversalPlanner(private val manifest: UniverseGeometryMa
         state: TraversalState,
         boundsFor: (DimensionId) -> VerticalDimensionBounds?,
     ): VerticalDimensionTraversal? {
+        if (dimension.value == manifest.universe.id) {
+            val position = IsolatedUniverseTraversal.reenter(
+                state.position,
+                VerticalLoopBounds(bounds.lowerY, bounds.upperY),
+                de.TeutonStudio.DynamicUniverse.worldtype.VerticalLoop.BOTH_DIRECTIONS,
+            ) ?: return null
+            return VerticalDimensionTraversal(dimension, state.copy(position = position))
+        }
         manifest.isolatedUniverses.singleOrNull { it.dimension == dimension }?.let { isolated ->
             val position = IsolatedUniverseTraversal.reenter(
                 state.position,

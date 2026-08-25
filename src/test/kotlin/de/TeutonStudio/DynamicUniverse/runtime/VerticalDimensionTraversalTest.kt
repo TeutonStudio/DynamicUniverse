@@ -14,13 +14,14 @@ class VerticalDimensionTraversalTest {
     private val end = DimensionId("minecraft:the_end")
     private val overworld = DimensionId("minecraft:overworld")
     private val aether = DimensionId("aether:the_aether")
+    private val universe = DimensionId("dynamicuniverse:test/universe")
     private val endBounds = VerticalDimensionBounds(0.0, 256.0)
     private val overworldBounds = VerticalDimensionBounds(-64.0, 320.0)
     private val aetherBounds = VerticalDimensionBounds(0.0, 256.0)
 
     private val planner = VerticalDimensionTraversalPlanner(
         UniverseGeometryManifest(
-            universe = UniverseFrame("dynamicuniverse:test/universe"), layers = emptyList(), airBuffers = emptyList(), links = emptyList(),
+            universe = UniverseFrame(universe.value), layers = emptyList(), airBuffers = emptyList(), links = emptyList(),
             planetSpaces = emptyList(), isolatedUniverses = listOf(IsolatedUniverseDefinition.end()),
             verticalSeams = listOf(VerticalDimensionSeam.overworldToAether()),
         ),
@@ -45,6 +46,12 @@ class VerticalDimensionTraversalTest {
 
     @Test fun `unloaded Aether leaves the optional seam inactive`() {
         assertNull(planner.traverse(overworld, overworldBounds, state(0.0, 320.0, 0.0)) { null })
+    }
+
+    @Test fun `technical universe host re-enters at its opposite height before void fall`() {
+        val result = requireNotNull(planner.traverse(universe, endBounds, state(5.0, -1.0, 7.0)) { endBounds })
+        assertEquals(universe, result.target)
+        assertEquals(SpatialPosition(5.0, 255.0, 7.0), result.state.position)
     }
 
     private fun state(x: Double, y: Double, z: Double) = TraversalState(SpatialPosition(x, y, z), SpatialVelocity(1.0, -2.0, 3.0))
