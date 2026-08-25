@@ -111,10 +111,9 @@ retains the original template only as provenance. Template updates never change
 an existing local profile.
 
 The End is a red, isolated universe. It is never selectable as a Terra stack
-layer. The End and the technical All host loop their actual lower and upper
-build-height overflows back into themselves without an editor hint or Terra portal
-connection. With Immersive Portals available this is materialized as global
-horizontal portals; the server-side listener is the fallback without that optional mod.
+layer and loops its actual lower and upper build-height overflows back into itself.
+UniverseSpace does not have this loop: its finite vanilla attachment is rebased in all
+three axes before an edge is reached, preserving one continuous global R³ coordinate.
 
 The Overworld-to-Aether route is a separate optional vertical air seam, not a
 Terra radial layer: rising through the Overworld's upper build bound enters the

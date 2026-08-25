@@ -28,13 +28,9 @@ class ImmersivePortalVerticalBoundaryAdapter : VerticalBoundaryPortalAdapter {
         // Global portal entities are derived state. Remove all legacy/current instances before
         // rebuilding, including the pre-v2 portals that used the exact Aether lower bound.
         server.allLevels.forEach(::removeTagged)
-        val host = DimensionId(manifest.universe.id)
-        server.level(host)?.let { level ->
-            val tag = "$TAG_PREFIX/host"
-            removeTagged(level, tag)
-            addLoop(level, tag)
-            handled += host
-        }
+        // The UniverseSpace host is deliberately absent here. Its native Minecraft build range
+        // is hidden by bubble rebasing; adding global floor/ceiling portals would turn R³ back
+        // into the End-style vertical cycle that UniverseSpace explicitly does not have.
         manifest.isolatedUniverses.forEach { isolated ->
             server.level(isolated.dimension)?.let { level ->
                 val tag = "$TAG_PREFIX/isolated/${isolated.id}"

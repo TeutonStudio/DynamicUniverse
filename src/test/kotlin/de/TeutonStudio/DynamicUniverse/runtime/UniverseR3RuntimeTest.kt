@@ -36,6 +36,15 @@ class UniverseR3RuntimeTest {
         assertEquals(true, adjacent.mergeable(near, far))
     }
 
+    @Test fun `host boundary rebasing preserves an unbounded vertical R3 position`() {
+        val bubble = SimulationBubble(Vector3(1_000.0, 50_000.0, -20.0), 2_000.0)
+        val local = Vector3(5.0, 289.0, 3.0)
+        val plan = requireNotNull(UniverseHostRebasePlanner.plan(bubble, local, UniverseHostLocalBounds.aroundOrigin()))
+        assertEquals(Vector3(1_005.0, 50_289.0, -17.0), plan.globalPosition)
+        assertEquals(Vector3.ZERO, plan.rebasedLocalPosition)
+        assertEquals(plan.globalPosition, plan.rebase.next.origin + plan.rebasedLocalPosition)
+    }
+
     @Test fun `plotyard reservation rejects colliding host slots`() {
         assertFailsWith<IllegalArgumentException> {
             UniverseHostLayout(

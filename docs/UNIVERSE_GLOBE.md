@@ -1,7 +1,8 @@
 # Universe globe projection
 
-`UniverseSpace` remains the authoritative continuous coordinate space; Minecraft's `All`
-level is only a finite host for rebased simulation bubbles. A celestial globe is a client-side
+`UniverseSpace` is a complete, authoritative continuous R³ zone; Minecraft's `All`
+level is only an invisible finite attachment for rebased simulation bubbles. It has no vertical
+cycle. A celestial globe is a client-side geometric sphere whose surface is a
 presentation of the **outermost local T² layer** of a body. It is not an Immersive-Portals
 surface and never owns collision, terrain or traversal authority.
 
@@ -27,6 +28,6 @@ atlas to infer a world coordinate without an explicit, server-validated chart se
 4. A terrain provider may fill `GlobeTileCache` only with server-authorized top-down source
    tiles. The cache is renderer-neutral so texture/FBO ownership can stay in a client adapter.
 
-The last GPU adapter is intentionally separate from this contract: it must render world tiles
-into a dedicated target without entering Immersive-Portals recursion, and must not grant clients
-visibility of arbitrary unloaded surface chunks.
+The GPU adapter renders world tiles into a dedicated target without entering Immersive-Portals
+recursion, and must not grant clients visibility of arbitrary unloaded surface chunks. It renders
+the mesh/atlas presentation while the server continues to own all collisions and crossings.

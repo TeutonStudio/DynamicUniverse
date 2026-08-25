@@ -48,10 +48,8 @@ class VerticalDimensionTraversalTest {
         assertNull(planner.traverse(overworld, overworldBounds, state(0.0, 320.0, 0.0)) { null })
     }
 
-    @Test fun `technical universe host re-enters at its opposite height before void fall`() {
-        val result = requireNotNull(planner.traverse(universe, endBounds, state(5.0, -1.0, 7.0)) { endBounds })
-        assertEquals(universe, result.target)
-        assertEquals(SpatialPosition(5.0, 255.0, 7.0), result.state.position)
+    @Test fun `universe host does not inherit the Ends vertical loop`() {
+        assertNull(planner.traverse(universe, endBounds, state(5.0, -1.0, 7.0)) { endBounds })
     }
 
     private fun state(x: Double, y: Double, z: Double) = TraversalState(SpatialPosition(x, y, z), SpatialVelocity(1.0, -2.0, 3.0))

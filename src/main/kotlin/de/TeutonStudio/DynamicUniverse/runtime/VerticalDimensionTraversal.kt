@@ -21,14 +21,10 @@ class VerticalDimensionTraversalPlanner(private val manifest: UniverseGeometryMa
         state: TraversalState,
         boundsFor: (DimensionId) -> VerticalDimensionBounds?,
     ): VerticalDimensionTraversal? {
-        if (dimension.value == manifest.universe.id) {
-            val position = IsolatedUniverseTraversal.reenter(
-                state.position,
-                VerticalLoopBounds(bounds.lowerY, bounds.upperY),
-                de.TeutonStudio.DynamicUniverse.worldtype.VerticalLoop.BOTH_DIRECTIONS,
-            ) ?: return null
-            return VerticalDimensionTraversal(dimension, state.copy(position = position))
-        }
+        // UniverseSpace is not an isolated Minecraft-style dimension. Its finite host level is
+        // rebased by the R³ host adapter before a native build-height boundary can be reached.
+        // In particular, it must never inherit the End's vertical loop.
+        if (dimension.value == manifest.universe.id) return null
         manifest.isolatedUniverses.singleOrNull { it.dimension == dimension }?.let { isolated ->
             val position = IsolatedUniverseTraversal.reenter(
                 state.position,

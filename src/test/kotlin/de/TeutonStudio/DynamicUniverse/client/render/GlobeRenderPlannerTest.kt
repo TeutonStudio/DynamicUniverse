@@ -29,4 +29,10 @@ class GlobeRenderPlannerTest {
         assertTrue(cache.get(key(1)) != null)
         assertEquals(null, cache.get(key(2)))
     }
+
+    @Test fun `geometric globe is a closed triangle mesh with projectable vertices`() {
+        val mesh = GeometricGlobeMeshes.icosphere(1)
+        assertEquals(80, mesh.triangleCount)
+        assertTrue(mesh.directions.all { kotlin.math.abs(it.lengthSquared() - 1.0) < 1.0e-9 })
+    }
 }
