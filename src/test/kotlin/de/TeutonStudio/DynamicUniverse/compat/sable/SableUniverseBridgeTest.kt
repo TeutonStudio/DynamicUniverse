@@ -6,8 +6,15 @@ import de.TeutonStudio.DynamicUniverse.cosmos.Vector3
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertFalse
 
 class SableUniverseBridgeTest {
+    @Test fun `bridge bytecode remains loadable without the optional Sable API`() {
+        val resource = requireNotNull(SableUniverseBridge::class.java.getResourceAsStream("SableUniverseBridge.class"))
+        val bytecode = resource.use { it.readBytes().decodeToString() }
+        assertFalse(bytecode.contains("dev/ryanhcode/sable/"))
+    }
+
     @Test fun `bridge remains usable when no Sable sublevel is bound`() {
         val bridge = SableUniverseBridge()
         val object_ = CelestialSpatialObject("station", 1.0, UniverseKinematicState(Vector3.ZERO), 1.0)
