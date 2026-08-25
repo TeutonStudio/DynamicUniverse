@@ -59,3 +59,14 @@ canonical(x) = floorMod(x + L/2, L) - L/2
 Crossing east returns on the west edge; crossing north returns on the south edge. Velocity and facing are preserved. The topology core has no portal or renderer dependency.
 
 Immersive Portals may render the seam as a continuous horizontal connection when present. Distant Horizons may consume the same canonical period for LOD adjacency. Both integrations are optional adapters: no client class or external API is reachable from common/server code.
+
+## Distant Horizons portal rendering
+
+Distant Horizons remains optional. During a normal world render, it renders only the player's
+current level. During an Immersive-Portals sub-render, DynamicUniverse derives a client-only
+`PortalLodRenderScope` from IP's active target dimension and recursion layer; the physical player
+is deliberately not used as the target-world identity. On DH's native OpenGL renderer with an
+active IP stencil target, the optional adapter binds DH to that target so terrain LODs are clipped
+by the portal aperture. DH engines without that framebuffer capability, absent IP, missing stencil
+state, or an unknown foreign target retain safe vanilla target chunks. The fallback is visual only:
+it never changes portal traversal, chunk ownership, saved data, or server behaviour.
