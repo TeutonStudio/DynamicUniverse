@@ -12,6 +12,16 @@ The server owns every celestial body's mass, radius, position, velocity, and res
 
 Planets are created only by administrative server actions. Survival gameplay cannot create celestial bodies, because an added mass changes all current gravitational accelerations and orbital trajectories.
 
+## All / UniverseSpace runtime
+
+`All` remains a Minecraft level because players, entities, Sable sublevels and optional portal adapters need a level host. It is not the universe's coordinate system: `UniverseSpace` is the authoritative continuous, unbounded, directionless R³. It has no Minecraft world border, vertical limit, orbital plane, global up, or horizontal seam.
+
+`UniverseSpatialObject` is the shared spatial basis; `CelestialSpatialObject` adds mass, radius and restitution for `DynamicCosmos`. Position, velocity and object-local orientation are held in `UniverseKinematicState`. `UniverseGeometryManifest` holds immutable dimension-stack and planet-local-space identity only. Moving planet anchors, spatial objects, bubble layout and optional compatibility reservations belong to the independently versioned `UniverseRuntimeState` persisted by `UniverseSaveData` and restored by `UniverseWorldCreationBridge`.
+
+The technical `UniverseHost` may keep several `SimulationBubble`s in named slots. A rebase changes bubble-local coordinates only and leaves global positions invariant. Membership is explicit, remote bubbles stay independent, and intersecting bubbles are merely merge candidates for a later hand-off implementation. A reserved `SablePlotyardReservation` prevents a normal host bubble from occupying Sable's plotyard area.
+
+Sable 2.0.3 is optional. `compat.sable.SableUniverseBridge` contains no direct Sable API reference, so an existing universe save restores without Sable. A Sable-side adapter can bind a sublevel to a spatial object and projects its local pose through that object before performing UniverseSpace work. Sable is supplied as `runtimeOnly` to `runClient`; final portal shells, sphere rendering and physical sublevel transfer are intentionally out of scope.
+
 ## Universe world type foundation
 
 `DYNAMIC_UNIVERSE` is a server-side world-type configuration. It represents a vertical hierarchy of galaxies, celestial groups, optional stars, planets, and radial dimension stacks. A celestial group is either a solar system with exactly one star or a cloud with no star.
@@ -22,7 +32,7 @@ Planet-core size is a separate, positive configuration value. It does not silent
 
 ## World-creation UI
 
-`dynamicuniverse:universe` is a data-driven Minecraft `WorldPreset`. It is added to the vanilla `#minecraft:normal` preset tag, so it appears in the existing World Type selector alongside Standard, Flat, and Single Biome. Its unedited Terra default installs the core, deep-Nether, sky, star, and universe level stems before server startup; the Terra surface and Nether retain the vanilla level keys for normal spawning and Nether travel. Planet cores and sky/universe use void generation, with a generated Bedrock cube shell in each planet core. A customized draft replaces these stems during the same pre-server creation phase and never alters a pre-existing save.
+`dynamicuniverse:universe` is a data-driven Minecraft `WorldPreset`. It is added to the vanilla `#minecraft:normal` preset tag, so it appears in the existing World Type selector alongside Standard, Flat, and Single Biome. Its unedited Terra default installs the core, deep-Nether, sky, star, and universe level stems before server startup; the Terra surface and Nether retain the vanilla level keys for normal spawning and Nether travel. Planet cores and sky use void generation, with a generated Bedrock cube shell in each planet core. The All stem uses the dedicated `dynamicuniverse:universe_space` dimension type and void generator as a technical host; this does not remove Minecraft's finite internal build range, which floating-origin bubbles hide from UniverseSpace consumers. A customized draft replaces these stems during the same pre-server creation phase and never alters a pre-existing save.
 
 NeoForge's client-only `RegisterPresetEditorsEvent` binds the existing vanilla `Customize` button to the Universe editor when, and only when, the Universe preset is selected. The editor uses one vertical, Flat-World-style expandable tree list: galaxies and solar systems expand in place; a galaxy contains solar systems and clouds; an expanded solar system exposes a separate Sun settings row and its planets. A solar system always has one Sun and one or more planets; a galaxy may contain both solar systems and clouds. Opening a planet, Sun, or cloud setting returns directly to the preserved tree rather than through intermediate hierarchy screens.
 
