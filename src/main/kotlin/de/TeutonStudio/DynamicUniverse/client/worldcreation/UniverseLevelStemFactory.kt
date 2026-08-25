@@ -6,7 +6,6 @@ import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.DynamicUniverse
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseLevelStemPlan
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseStemTemplate
-import net.minecraft.client.Minecraft
 import net.minecraft.core.RegistryAccess
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
@@ -14,6 +13,8 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.resources.RegistryOps
 import net.minecraft.world.level.dimension.LevelStem
 import net.minecraft.world.level.levelgen.WorldDimensions
+import net.neoforged.fml.ModList
+import java.nio.file.Files
 
 /** Installs all dynamic level stems while the Create World screen can still alter WorldDimensions. */
 object UniverseLevelStemFactory {
@@ -77,19 +78,23 @@ object UniverseLevelStemFactory {
 
     /**
      * Level-stem registries are not available yet on Minecraft's Create World screen. External
-     * dimensions nevertheless expose their canonical JSON through the active resource manager;
-     * decoding that definition keeps their own generator and dimension type intact.
+     * dimensions nevertheless package their canonical JSON in the loaded mod file. Reading it
+     * from there works before the server data-pack manager exists and retains the mod's own
+     * generator and dimension type.
      */
     private fun loadExternalStem(registries: RegistryAccess.Frozen, dimension: DimensionId): LevelStem {
         val id = requireNotNull(ResourceLocation.tryParse(dimension.value)) {
             "Invalid external dimension id: ${dimension.value}"
         }
-        val definition = ResourceLocation.fromNamespaceAndPath(id.namespace, "dimension/${id.path}.json")
-        val resource = Minecraft.getInstance().resourceManager.getResource(definition).orElseThrow {
-            IllegalStateException("The selected Universe stack requires ${dimension.value}, but its dimension definition $definition is unavailable.")
+        val modFile = requireNotNull(ModList.get().getModFileById(id.namespace)) {
+            "The selected Universe stack requires ${dimension.value}, but the ${id.namespace} mod is not loaded."
+        }
+        val definition = modFile.file.findResource("data", id.namespace, "dimension", "${id.path}.json")
+        require(Files.isRegularFile(definition)) {
+            "The selected Universe stack requires ${dimension.value}, but ${definition.fileName} is missing from the ${id.namespace} mod."
         }
         val ops = RegistryOps.create(JsonOps.INSTANCE, registries)
-        resource.open().bufferedReader().use { reader ->
+        Files.newBufferedReader(definition).use { reader ->
             val json = JsonParser.parseReader(reader)
             return LevelStem.CODEC.parse(ops, json).getOrThrow { message ->
                 IllegalStateException("Cannot decode external dimension ${dimension.value}: $message")
