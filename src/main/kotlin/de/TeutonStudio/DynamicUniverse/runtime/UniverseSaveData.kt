@@ -87,8 +87,10 @@ private fun defaultRuntimeState(worldType: UniverseWorldType): UniverseRuntimeSt
     return UniverseRuntimeState(
         hostId = "${worldType.universeDimension.value}/host",
         universeSpaceId = space.id,
-        planetBindings = geometry.planetSpaces.map { PlanetSpaceBinding(it.planetId, it.localSpaceId, space) },
-        planetKinematics = geometry.planetSpaces.map { PlanetKinematicState(it.planetId, UniverseKinematicState(Vector3.ZERO)) },
+        // The persisted field keeps its historical name for compatibility, but now binds every
+        // visible celestial body, including stars and moons.
+        planetBindings = geometry.celestialGlobes.map { PlanetSpaceBinding(it.bodyId, "${it.bodyId}:local", space) },
+        planetKinematics = geometry.celestialGlobes.map { PlanetKinematicState(it.bodyId, UniverseKinematicState(Vector3.ZERO)) },
     )
 }
 

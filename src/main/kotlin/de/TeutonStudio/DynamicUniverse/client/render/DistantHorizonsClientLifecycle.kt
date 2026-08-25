@@ -30,5 +30,6 @@ object StackRenderClientDisconnect {
     @SubscribeEvent
     fun onLogout(event: ClientPlayerNetworkEvent.LoggingOut) {
         StackRenderContext.clear()
+        GlobeRenderContext.clear()
     }
 }
