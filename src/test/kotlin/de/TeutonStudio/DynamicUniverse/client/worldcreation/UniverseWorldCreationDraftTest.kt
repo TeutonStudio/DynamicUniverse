@@ -15,7 +15,7 @@ class UniverseWorldCreationDraftTest {
         assertEquals(CelestialBodyKind.PLANET, planet.bodyKind)
         assertEquals(8, planet.radialScale)
         assertEquals(
-            listOf("Planetenkern", "Tiefer Nether", "Nether", "Oberwelt", "Himmel"),
+            listOf("Planetenkern", "Nether", "Undergarden", "Oberwelt", "Aether"),
             planet.dimensions.map(EditableDimension::displayName),
         )
         assertTrue(planet.dimensionValidation.isValid)
@@ -65,17 +65,17 @@ class UniverseWorldCreationDraftTest {
 
     @Test
     fun `discovered unresolved dimensions are selectable but block world creation`() {
-        val aether = PlanetDimensionCatalog.discovered("aether:the_aether", "Aether")
-        val catalog = PlanetDimensionCatalog(PlanetDimensionCatalog.standard.selectable() + aether)
+        val discoveredSky = PlanetDimensionCatalog.discovered("example:sky", "Beispielhimmel")
+        val catalog = PlanetDimensionCatalog(PlanetDimensionCatalog.standard.selectable() + discoveredSky)
         PlanetDimensionCatalogs.install(catalog)
         try {
-            val selected = EditablePlanet.default().replaceDimension(EditablePlanet.default().dimensions.lastIndex, aether.id)
+            val selected = EditablePlanet.default().replaceDimension(EditablePlanet.default().dimensions.lastIndex, discoveredSky.id)
 
-            assertTrue(aether.isSelectable)
-            assertTrue(aether.blocksWorldCreation)
-            assertEquals(DimensionCatalogStatus.DISCOVERED, catalog.require(aether.id).catalogStatus)
+            assertTrue(discoveredSky.isSelectable)
+            assertTrue(discoveredSky.blocksWorldCreation)
+            assertEquals(DimensionCatalogStatus.DISCOVERED, catalog.require(discoveredSky.id).catalogStatus)
             assertFalse(selected.dimensionValidation.isValid)
-            assertEquals(listOf(aether.id), selected.dimensionValidation.unresolvedDimensions.map(EditableDimension::descriptorId))
+            assertEquals(listOf(discoveredSky.id), selected.dimensionValidation.unresolvedDimensions.map(EditableDimension::descriptorId))
         } finally {
             PlanetDimensionCatalogs.resetForTests()
         }

@@ -202,10 +202,10 @@ data class EditableDimensionStack(val layers: List<EditableDimension>) {
     companion object {
         fun planetDefault() = EditableDimensionStack(listOf(
             EditableDimension("core", PlanetDimensionCatalog.CORE_ID),
-            EditableDimension("deep_nether", PlanetDimensionCatalog.DEEP_NETHER_ID),
             EditableDimension("nether", PlanetDimensionCatalog.NETHER_ID),
+            EditableDimension("underground", PlanetDimensionCatalog.UNDERGARDEN_ID),
             EditableDimension("surface", PlanetDimensionCatalog.OVERWORLD_ID),
-            EditableDimension("sky", PlanetDimensionCatalog.SKY_ID),
+            EditableDimension("aether", PlanetDimensionCatalog.AETHER_ID),
         ))
 
         fun starDefault() = EditableDimensionStack(listOf(

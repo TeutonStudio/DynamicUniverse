@@ -36,6 +36,7 @@ object UniverseLevelStemFactory {
             UniverseStemTemplate.CORE to core,
             UniverseStemTemplate.VOID to void,
         )
+        val registeredStems = registries.registryOrThrow(Registries.LEVEL_STEM)
 
         // Replace the preset's default generated layers when the editor produced a different
         // universe. Leaving them in would create unreferenced, permanently loaded levels.
@@ -51,7 +52,12 @@ object UniverseLevelStemFactory {
             // distinct instances: assigning one LevelStem to multiple keys makes bake() reject
             // the registry. New dimensions receive a registry-aware decoded copy instead.
             if (key !in dimensions) {
-                dimensions[key] = copyStem(registries, requireNotNull(templateSources[template]))
+                dimensions[key] = when (template) {
+                    UniverseStemTemplate.EXTERNAL -> requireNotNull(registeredStems.get(key)) {
+                        "The selected Universe stack requires the external dimension ${dimension.value}, but its level stem is not registered."
+                    }
+                    else -> copyStem(registries, requireNotNull(templateSources[template]))
+                }
             }
         }
         check(dimensions.values.toSet().size == dimensions.size) {

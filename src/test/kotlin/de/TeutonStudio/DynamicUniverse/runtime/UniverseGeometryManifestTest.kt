@@ -13,9 +13,9 @@ class UniverseGeometryManifestTest {
 
         assertEquals(8, manifest.layers.size)
         assertEquals(32L * 16L, manifest.layers.first { it.dimension.value.endsWith("planet/0/0/0/core") }.period.blocks)
-        val deepNether = manifest.layers.first { it.dimension.value.endsWith("planet/0/0/0/deep_nether") }
-        assertEquals(32L * 16L * 8L, deepNether.period.blocks)
-        assertEquals(deepNether.period.blocks.toDouble() / (2.0 * Math.PI), deepNether.projectionRadiusBlocks)
+        val underground = manifest.layers.first { it.dimension.value == "undergarden:undergarden" }
+        assertEquals(32L * 16L * 8L * 8L, underground.period.blocks)
+        assertEquals(underground.period.blocks.toDouble() / (2.0 * Math.PI), underground.projectionRadiusBlocks)
         assertEquals(2, manifest.airBuffers.size)
         assertTrue(manifest.airBuffers.all { it.lowerBlocks == 5 && it.upperBlocks == 5 })
     }

@@ -95,7 +95,9 @@ class PlanetDimensionCatalog(descriptors: Collection<RegisteredDimensionDescript
         const val CORE_ID = "dynamicuniverse:planet_core"
         const val DEEP_NETHER_ID = "dynamicuniverse:deep_nether"
         const val NETHER_ID = "minecraft:the_nether"
+        const val UNDERGARDEN_ID = "undergarden:undergarden"
         const val OVERWORLD_ID = "minecraft:overworld"
+        const val AETHER_ID = "aether:the_aether"
         const val SKY_ID = "dynamicuniverse:sky"
         const val END_ID = "minecraft:the_end"
 
@@ -104,7 +106,9 @@ class PlanetDimensionCatalog(descriptors: Collection<RegisteredDimensionDescript
                 descriptor(CORE_ID, "Planetenkern", DimensionCatalogStatus.VERIFIED, null, BoundarySurface.BEDROCK),
                 descriptor(DEEP_NETHER_ID, "Tiefer Nether", DimensionCatalogStatus.VERIFIED, BoundarySurface.BEDROCK, BoundarySurface.BEDROCK),
                 descriptor(NETHER_ID, "Nether", DimensionCatalogStatus.VERIFIED, BoundarySurface.BEDROCK, BoundarySurface.BEDROCK),
+                descriptor(UNDERGARDEN_ID, "Undergarden", DimensionCatalogStatus.VERIFIED, BoundarySurface.BEDROCK, BoundarySurface.BEDROCK),
                 descriptor(OVERWORLD_ID, "Oberwelt", DimensionCatalogStatus.VERIFIED, BoundarySurface.BEDROCK, BoundarySurface.AIR),
+                descriptor(AETHER_ID, "Aether", DimensionCatalogStatus.VERIFIED, BoundarySurface.AIR, BoundarySurface.AIR),
                 descriptor(SKY_ID, "Himmel", DimensionCatalogStatus.VERIFIED, BoundarySurface.AIR, BoundarySurface.AIR),
                 RegisteredDimensionDescriptor(
                     END_ID,

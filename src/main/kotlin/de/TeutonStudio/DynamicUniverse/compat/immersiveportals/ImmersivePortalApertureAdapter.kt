@@ -164,12 +164,16 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         DimensionBoundaryFace.UPPER -> axisAngle(1.0, 0.0, 0.0, 90.0)
     }
 
-    /** The portal lies on the exposed face, never in the middle of the Bedrock block. */
+    /**
+     * PortalAPI positions the horizontal portal plane at the opened cell's centre. The lower
+     * boundary was already correct; using -0.5 for an upper boundary placed that portal a full
+     * block too far into the level. Both horizontal boundary cells therefore use their centre.
+     */
     private fun boundaryCenter(position: HorizontalPosition, plane: BedrockBoundaryPlane): Vec3 = Vec3(
         position.x + 0.5,
         plane.y + when (plane.face) {
             DimensionBoundaryFace.LOWER -> 0.5
-            DimensionBoundaryFace.UPPER -> -0.5
+            DimensionBoundaryFace.UPPER -> 0.5
         },
         position.z + 0.5,
     )
