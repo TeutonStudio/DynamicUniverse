@@ -53,6 +53,8 @@ object UniverseWorldCreationBridge {
         UniverseRuntime.clear()
         UniverseRuntime.api().register(definition.worldType)
         de.TeutonStudio.DynamicUniverse.network.UniverseStackRenderSync.install(manifest)
+        // Geometry remains immutable; this separately persisted state owns positions, bubbles and compat reservations.
+        UniverseRuntime.installState(definition.runtimeState)
         BedrockApertureRuntime.install(manifest, definition.bedrockPlanes)
         BedrockApertureRuntime.reconcile(server)
         UniverseTransitionRuntime.install(manifest)

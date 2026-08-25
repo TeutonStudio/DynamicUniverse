@@ -4,6 +4,12 @@ import de.TeutonStudio.DynamicUniverse.dimension.BoundarySurface
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaryFace
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionScale
+import de.TeutonStudio.DynamicUniverse.cosmos.CelestialSpatialObject
+import de.TeutonStudio.DynamicUniverse.cosmos.PlanetSpaceBinding
+import de.TeutonStudio.DynamicUniverse.cosmos.SpatialRotation
+import de.TeutonStudio.DynamicUniverse.cosmos.UniverseKinematicState
+import de.TeutonStudio.DynamicUniverse.cosmos.UniverseSpace
+import de.TeutonStudio.DynamicUniverse.cosmos.Vector3
 import de.TeutonStudio.DynamicUniverse.worldtype.CelestialGroup
 import de.TeutonStudio.DynamicUniverse.worldtype.CelestialGroupKind
 import de.TeutonStudio.DynamicUniverse.worldtype.Galaxy
@@ -62,6 +68,7 @@ data class PersistedUniverseDefinition(
     val formatVersion: Int = CURRENT_FORMAT_VERSION,
     val worldType: UniverseWorldType,
     val bedrockPlanes: List<BedrockBoundaryPlane> = emptyList(),
+    val runtimeState: UniverseRuntimeState = defaultRuntimeState(worldType),
 ) {
     init {
         require(formatVersion == CURRENT_FORMAT_VERSION) { "Unsupported DynamicUniverse save format: $formatVersion" }
@@ -70,7 +77,18 @@ data class PersistedUniverseDefinition(
         }
     }
 
-    companion object { const val CURRENT_FORMAT_VERSION = 1 }
+    companion object { const val CURRENT_FORMAT_VERSION = 2 }
+}
+
+private fun defaultRuntimeState(worldType: UniverseWorldType): UniverseRuntimeState {
+    val geometry = UniverseGeometryCompiler.compile(worldType)
+    val space = UniverseSpace(worldType.universeDimension.value)
+    return UniverseRuntimeState(
+        hostId = "${worldType.universeDimension.value}/host",
+        universeSpaceId = space.id,
+        planetBindings = geometry.planetSpaces.map { PlanetSpaceBinding(it.planetId, it.localSpaceId, space) },
+        planetKinematics = geometry.planetSpaces.map { PlanetKinematicState(it.planetId, UniverseKinematicState(Vector3.ZERO)) },
+    )
 }
 
 /** Compact NBT codec kept beside the save type so the persisted boundary remains explicit. */
@@ -78,19 +96,89 @@ object UniversePersistenceCodec {
     private const val VERSION = "version"
     private const val WORLD = "world"
     private const val PLANES = "planes"
+    private const val RUNTIME = "runtime"
 
     fun encode(definition: PersistedUniverseDefinition): CompoundTag = CompoundTag().apply {
         putInt(VERSION, definition.formatVersion)
         put(WORLD, definition.worldType.toTag())
         put(PLANES, definition.bedrockPlanes.toTag { it.toTag() })
+        put(RUNTIME, UniverseRuntimeStateCodec.encode(definition.runtimeState))
     }
 
-    fun decode(tag: CompoundTag): PersistedUniverseDefinition = PersistedUniverseDefinition(
-        formatVersion = tag.getInt(VERSION),
-        worldType = tag.getCompound(WORLD).toWorldType(),
-        bedrockPlanes = tag.getList(PLANES, Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toBedrockPlane() },
+    fun decode(tag: CompoundTag): PersistedUniverseDefinition {
+        val worldType = tag.getCompound(WORLD).toWorldType()
+        val version = tag.getInt(VERSION)
+        require(version in 1..PersistedUniverseDefinition.CURRENT_FORMAT_VERSION) { "Unsupported DynamicUniverse save format: $version" }
+        return PersistedUniverseDefinition(
+            formatVersion = PersistedUniverseDefinition.CURRENT_FORMAT_VERSION,
+            worldType = worldType,
+            bedrockPlanes = tag.getList(PLANES, Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toBedrockPlane() },
+            runtimeState = if (version >= 2 && tag.contains(RUNTIME, Tag.TAG_COMPOUND.toInt())) {
+                UniverseRuntimeStateCodec.decode(tag.getCompound(RUNTIME))
+            } else defaultRuntimeState(worldType),
+        )
+    }
+}
+
+/** NBT boundary for state that changes independently from immutable dimension geometry. */
+object UniverseRuntimeStateCodec {
+    private const val VERSION = "version"
+    private const val HOST = "host"
+    private const val SPACE = "space"
+    private const val OBJECTS = "objects"
+    private const val BINDINGS = "bindings"
+    private const val KINEMATICS = "kinematics"
+    private const val LAYOUT = "layout"
+
+    fun encode(state: UniverseRuntimeState): CompoundTag = CompoundTag().apply {
+        putInt(VERSION, state.formatVersion)
+        putString(HOST, state.hostId)
+        putString(SPACE, state.universeSpaceId)
+        put(OBJECTS, state.objects.toTag { it.toTag() })
+        put(BINDINGS, state.planetBindings.toTag { it.toTag() })
+        put(KINEMATICS, state.planetKinematics.toTag { it.toTag() })
+        put(LAYOUT, state.hostLayout.toTag())
+    }
+
+    fun decode(tag: CompoundTag): UniverseRuntimeState = UniverseRuntimeState(
+        formatVersion = tag.getInt(VERSION), hostId = tag.getString(HOST), universeSpaceId = tag.getString(SPACE),
+        objects = tag.getList(OBJECTS, Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toObject() },
+        planetBindings = tag.getList(BINDINGS, Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toBinding() },
+        planetKinematics = tag.getList(KINEMATICS, Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toPlanetKinematics() },
+        hostLayout = tag.getCompound(LAYOUT).toHostLayout(),
     )
 }
+
+private fun Vector3.toTag() = CompoundTag().apply { putDouble("x", x); putDouble("y", y); putDouble("z", z) }
+private fun CompoundTag.toVector3() = Vector3(getDouble("x"), getDouble("y"), getDouble("z"))
+private fun UniverseKinematicState.toTag() = CompoundTag().apply {
+    put("position", position.toTag()); put("velocity", velocity.toTag())
+    putDouble("qx", orientation.x); putDouble("qy", orientation.y); putDouble("qz", orientation.z); putDouble("qw", orientation.w)
+}
+private fun CompoundTag.toKinematicState() = UniverseKinematicState(
+    getCompound("position").toVector3(), getCompound("velocity").toVector3(),
+    SpatialRotation.of(getDouble("qx"), getDouble("qy"), getDouble("qz"), getDouble("qw")),
+)
+private fun CelestialSpatialObject.toTag() = CompoundTag().apply {
+    putString("id", this@toTag.id); putDouble("mass", mass); putDouble("radius", radius); putDouble("restitution", restitution); put("kinematics", kinematics.toTag())
+}
+private fun CompoundTag.toObject() = CelestialSpatialObject(getString("id"), getDouble("mass"), getCompound("kinematics").toKinematicState(), getDouble("radius"), getDouble("restitution"))
+private fun PlanetSpaceBinding.toTag() = CompoundTag().apply {
+    putString("planet", planetId); putString("local", localSpaceId); putString("space", universeSpace.id); putDouble("scale", localUnitsPerUniverseUnit)
+}
+private fun CompoundTag.toBinding() = PlanetSpaceBinding(getString("planet"), getString("local"), UniverseSpace(getString("space")), getDouble("scale"))
+private fun PlanetKinematicState.toTag() = CompoundTag().apply { putString("planet", planetId); put("state", kinematics.toTag()) }
+private fun CompoundTag.toPlanetKinematics() = PlanetKinematicState(getString("planet"), getCompound("state").toKinematicState())
+private fun UniverseHostLayout.toTag() = CompoundTag().apply {
+    put("bubbles", bubbles.toTag { hosted -> CompoundTag().apply { putString("slot", hosted.slot.value); put("origin", hosted.bubble.origin.toTag()); putDouble("radius", hosted.bubble.radius); putDouble("threshold", hosted.bubble.rebaseThreshold); putDouble("grid", hosted.bubble.rebaseGridSize) } })
+    put("memberships", memberships.toTag { membership -> CompoundTag().apply { putString("object", membership.objectId); putString("slot", membership.slot.value) } })
+    sablePlotyard?.let { put("plotyard", CompoundTag().apply { put("center", it.center.toTag()); putDouble("radius", it.radius) }) }
+}
+private fun CompoundTag.toHostLayout() = UniverseHostLayout(
+    bubbles = getList("bubbles", Tag.TAG_COMPOUND.toInt()).map { tag -> tag.asCompound().let { HostedSimulationBubble(UniverseHostSlot(it.getString("slot")), SimulationBubble(it.getCompound("origin").toVector3(), it.getDouble("radius"), it.getDouble("threshold"), it.getDouble("grid"))) } },
+    memberships = getList("memberships", Tag.TAG_COMPOUND.toInt()).map { tag -> tag.asCompound().let { BubbleMembership(it.getString("object"), UniverseHostSlot(it.getString("slot"))) } },
+    sablePlotyard = takeIf { contains("plotyard", Tag.TAG_COMPOUND.toInt()) }?.getCompound("plotyard")?.let { SablePlotyardReservation(it.getCompound("center").toVector3(), it.getDouble("radius")) },
+)
 
 private fun UniverseWorldType.toTag(): CompoundTag = CompoundTag().apply {
     putString("id", this@toTag.id)
