@@ -1,10 +1,12 @@
 package de.TeutonStudio.DynamicUniverse.client.worldcreation
 
+import com.google.gson.JsonParser
 import com.mojang.serialization.JsonOps
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionId
 import de.TeutonStudio.DynamicUniverse.DynamicUniverse
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseLevelStemPlan
 import de.TeutonStudio.DynamicUniverse.runtime.UniverseStemTemplate
+import net.minecraft.client.Minecraft
 import net.minecraft.core.RegistryAccess
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
@@ -36,8 +38,6 @@ object UniverseLevelStemFactory {
             UniverseStemTemplate.CORE to core,
             UniverseStemTemplate.VOID to void,
         )
-        val registeredStems = registries.registryOrThrow(Registries.LEVEL_STEM)
-
         // Replace the preset's default generated layers when the editor produced a different
         // universe. Leaving them in would create unreferenced, permanently loaded levels.
         val plannedKeys = plan.templates.keys.mapTo(mutableSetOf(), ::levelStemKey)
@@ -53,9 +53,7 @@ object UniverseLevelStemFactory {
             // the registry. New dimensions receive a registry-aware decoded copy instead.
             if (key !in dimensions) {
                 dimensions[key] = when (template) {
-                    UniverseStemTemplate.EXTERNAL -> requireNotNull(registeredStems.get(key)) {
-                        "The selected Universe stack requires the external dimension ${dimension.value}, but its level stem is not registered."
-                    }
+                    UniverseStemTemplate.EXTERNAL -> loadExternalStem(registries, dimension)
                     else -> copyStem(registries, requireNotNull(templateSources[template]))
                 }
             }
@@ -74,6 +72,28 @@ object UniverseLevelStemFactory {
         }
         return LevelStem.CODEC.parse(ops, encoded).getOrThrow { message ->
             throw IllegalStateException("Cannot decode a Universe level-stem template: $message")
+        }
+    }
+
+    /**
+     * Level-stem registries are not available yet on Minecraft's Create World screen. External
+     * dimensions nevertheless expose their canonical JSON through the active resource manager;
+     * decoding that definition keeps their own generator and dimension type intact.
+     */
+    private fun loadExternalStem(registries: RegistryAccess.Frozen, dimension: DimensionId): LevelStem {
+        val id = requireNotNull(ResourceLocation.tryParse(dimension.value)) {
+            "Invalid external dimension id: ${dimension.value}"
+        }
+        val definition = ResourceLocation.fromNamespaceAndPath(id.namespace, "dimension/${id.path}.json")
+        val resource = Minecraft.getInstance().resourceManager.getResource(definition).orElseThrow {
+            IllegalStateException("The selected Universe stack requires ${dimension.value}, but its dimension definition $definition is unavailable.")
+        }
+        val ops = RegistryOps.create(JsonOps.INSTANCE, registries)
+        resource.open().bufferedReader().use { reader ->
+            val json = JsonParser.parseReader(reader)
+            return LevelStem.CODEC.parse(ops, json).getOrThrow { message ->
+                IllegalStateException("Cannot decode external dimension ${dimension.value}: $message")
+            }
         }
     }
 
