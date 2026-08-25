@@ -51,6 +51,8 @@ object UniverseWorldCreationBridge {
         val manifest = UniverseGeometryCompiler.compile(definition.worldType)
         UniverseRuntime.clear()
         UniverseRuntime.api().register(definition.worldType)
+        // Geometry remains immutable; this separately persisted state owns positions, bubbles and compat reservations.
+        UniverseRuntime.installState(definition.runtimeState)
         BedrockApertureRuntime.install(manifest, definition.bedrockPlanes)
         BedrockApertureRuntime.reconcile(server)
         UniverseTransitionRuntime.install(manifest)
