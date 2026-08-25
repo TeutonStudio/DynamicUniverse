@@ -107,7 +107,7 @@
       }
     },
     "dynamicuniverse:created/universe": {
-      "type": "minecraft:overworld",
+      "type": "dynamicuniverse:universe_space",
       "generator": {
         "type": "minecraft:flat",
         "settings": {

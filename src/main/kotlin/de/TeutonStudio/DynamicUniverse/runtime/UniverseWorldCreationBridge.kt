@@ -31,9 +31,7 @@ object UniverseWorldCreationBridge {
     /** Restores a previously created Universe save; returns false for ordinary worlds. */
     fun restore(server: MinecraftServer): Boolean {
         val definition = UniverseSaveData.findForServer(server)?.definition ?: run {
-            UniverseRuntime.clear()
-            BedrockApertureRuntime.clear()
-            UniverseTransitionRuntime.clear()
+            clear(server)
             return false
         }
         requireInstalledLevels(server, definition.worldType)
@@ -41,11 +39,14 @@ object UniverseWorldCreationBridge {
         return true
     }
 
-    fun clear() {
+    fun clear(server: MinecraftServer? = null) {
         UniverseRuntime.clear()
         de.TeutonStudio.DynamicUniverse.network.UniverseStackRenderSync.clear()
         BedrockApertureRuntime.clear()
         UniverseTransitionRuntime.clear()
+        VerticalDimensionTransitionRuntime.clear()
+        UniverseVerticalTransitionListener.clear()
+        VerticalBoundaryPortalRuntime.clear(server)
     }
 
     private fun activate(server: MinecraftServer, definition: PersistedUniverseDefinition) {
@@ -53,9 +54,13 @@ object UniverseWorldCreationBridge {
         UniverseRuntime.clear()
         UniverseRuntime.api().register(definition.worldType)
         de.TeutonStudio.DynamicUniverse.network.UniverseStackRenderSync.install(manifest)
+        // Geometry remains immutable; this separately persisted state owns positions, bubbles and compat reservations.
+        UniverseRuntime.installState(definition.runtimeState)
         BedrockApertureRuntime.install(manifest, definition.bedrockPlanes)
         BedrockApertureRuntime.reconcile(server)
         UniverseTransitionRuntime.install(manifest)
+        VerticalDimensionTransitionRuntime.install(manifest)
+        VerticalBoundaryPortalRuntime.install(server, manifest)
     }
 
     /** A persisted plan may never be activated against a partially registered dimension set. */
