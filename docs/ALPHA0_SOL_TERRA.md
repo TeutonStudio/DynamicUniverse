@@ -111,5 +111,11 @@ retains the original template only as provenance. Template updates never change
 an existing local profile.
 
 The End is a red, isolated universe. It is never selectable as a Terra stack
-layer. Its vertical lower and upper overflows loop back into the End without an
-editor hint or Terra portal connection.
+layer. A server-side vertical-boundary listener loops its actual lower and upper
+build-height overflows back into the End without an editor hint or Terra portal
+connection.
+
+The Overworld-to-Aether route is a separate optional vertical air seam, not a
+Terra radial layer: rising through the Overworld's upper build bound enters the
+Aether at its lower bound; falling below the Aether returns to the Overworld
+top. The seam activates only when Aether has registered its own level stem.

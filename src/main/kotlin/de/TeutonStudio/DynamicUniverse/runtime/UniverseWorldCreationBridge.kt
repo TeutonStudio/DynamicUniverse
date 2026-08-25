@@ -34,6 +34,8 @@ object UniverseWorldCreationBridge {
             UniverseRuntime.clear()
             BedrockApertureRuntime.clear()
             UniverseTransitionRuntime.clear()
+            VerticalDimensionTransitionRuntime.clear()
+            UniverseVerticalTransitionListener.clear()
             return false
         }
         requireInstalledLevels(server, definition.worldType)
@@ -46,6 +48,8 @@ object UniverseWorldCreationBridge {
         de.TeutonStudio.DynamicUniverse.network.UniverseStackRenderSync.clear()
         BedrockApertureRuntime.clear()
         UniverseTransitionRuntime.clear()
+        VerticalDimensionTransitionRuntime.clear()
+        UniverseVerticalTransitionListener.clear()
     }
 
     private fun activate(server: MinecraftServer, definition: PersistedUniverseDefinition) {
@@ -58,6 +62,7 @@ object UniverseWorldCreationBridge {
         BedrockApertureRuntime.install(manifest, definition.bedrockPlanes)
         BedrockApertureRuntime.reconcile(server)
         UniverseTransitionRuntime.install(manifest)
+        VerticalDimensionTransitionRuntime.install(manifest)
     }
 
     /** A persisted plan may never be activated against a partially registered dimension set. */

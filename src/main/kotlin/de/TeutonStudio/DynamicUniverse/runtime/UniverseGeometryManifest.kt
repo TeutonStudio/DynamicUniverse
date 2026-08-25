@@ -12,6 +12,7 @@ import de.TeutonStudio.DynamicUniverse.worldtype.IsolatedUniverseDefinition
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionRole
 import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionStack
 import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
+import de.TeutonStudio.DynamicUniverse.worldtype.VerticalDimensionSeam
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.math.PI
@@ -26,19 +27,21 @@ data class UniverseGeometryManifest(
     /** Immutable local-space identities. Their anchors/velocities belong to UniverseRuntimeState. */
     val planetSpaces: List<PlanetSpaceGeometry>,
     val isolatedUniverses: List<IsolatedUniverseDefinition>,
+    val verticalSeams: List<VerticalDimensionSeam> = emptyList(),
     val planetCores: List<PlanetCoreGeometry> = emptyList(),
 ) {
     init {
         require(layers.map(LayerGeometry::dimension).distinct().size == layers.size) { "A level may only bind one layer." }
         require(links.map(DimensionConnection::id).distinct().size == links.size) { "Logical link ids must be unique." }
         require(planetSpaces.map(PlanetSpaceGeometry::planetId).distinct().size == planetSpaces.size) { "A planet may only bind one local space." }
+        require(verticalSeams.map(VerticalDimensionSeam::id).distinct().size == verticalSeams.size) { "Vertical seam ids must be unique." }
         require(planetCores.map(PlanetCoreGeometry::coreDimension).distinct().size == planetCores.size) {
             "A planet-core dimension may only belong to one core geometry."
         }
     }
 
     companion object {
-        const val CURRENT_VERSION = 3
+        const val CURRENT_VERSION = 4
         /** Keeps rendered stack layers well outside the tallest generated dimension. */
         const val RENDER_LAYER_SPACING_BLOCKS = 4096
     }
@@ -128,6 +131,7 @@ object UniverseGeometryCompiler {
             links = worldType.connectionGraph().allRoutes().filterNot { it.id.endsWith(":reverse") },
             planetSpaces = spaces,
             isolatedUniverses = worldType.isolatedUniverses,
+            verticalSeams = worldType.verticalSeams,
             planetCores = cores,
         )
     }

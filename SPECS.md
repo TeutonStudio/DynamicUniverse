@@ -20,7 +20,15 @@ Planets are created only by administrative server actions. Survival gameplay can
 
 The technical `UniverseHost` may keep several `SimulationBubble`s in named slots. A rebase changes bubble-local coordinates only and leaves global positions invariant. Membership is explicit, remote bubbles stay independent, and intersecting bubbles are merely merge candidates for a later hand-off implementation. A reserved `SablePlotyardReservation` prevents a normal host bubble from occupying Sable's plotyard area.
 
+`All` is still a finite Minecraft level internally, so it is deliberately only the host for local bubbles—not the rendered universe itself. Planetary sphere shells, tessellated portal patches and far-distance rendering remain a later rendering phase; a single affine portal cannot represent a curved sphere.
+
 Sable 2.0.3 is optional. `compat.sable.SableUniverseBridge` contains no direct Sable API reference, so an existing universe save restores without Sable. A Sable-side adapter can bind a sublevel to a spatial object and projects its local pose through that object before performing UniverseSpace work. Sable is supplied as `runtimeOnly` to `runClient`; final portal shells, sphere rendering and physical sublevel transfer are intentionally out of scope.
+
+## Vertical dimension seams
+
+The End is an isolated vertical loop: crossing its real lower or upper build-height bound immediately re-enters at the opposite bound without altering X/Z, velocity or passenger ownership. This is a same-level loop and therefore intentionally not a `DimensionConnection`.
+
+`VerticalDimensionSeam` models cross-level air seams separately from radial planet stacks. The built-in optional seam maps the top of `minecraft:overworld` to the bottom of `aether:the_aether`; falling through the Aether bottom returns to the Overworld top. It becomes active only when the Aether level exists, preserving normal worlds without Aether. External Aether stems remain supplied by Aether itself and are never replaced with cloned vanilla worldgen.
 
 ## Universe world type foundation
 
@@ -36,7 +44,7 @@ Planet-core size is a separate, positive configuration value. It does not silent
 
 NeoForge's client-only `RegisterPresetEditorsEvent` binds the existing vanilla `Customize` button to the Universe editor when, and only when, the Universe preset is selected. The editor uses one vertical, Flat-World-style expandable tree list: galaxies and solar systems expand in place; a galaxy contains solar systems and clouds; an expanded solar system exposes a separate Sun settings row and its planets. A solar system always has one Sun and one or more planets; a galaxy may contain both solar systems and clouds. Opening a planet, Sun, or cloud setting returns directly to the preserved tree rather than through intermediate hierarchy screens.
 
-The planet settings currently edit a validated creation draft: number of dimensions between space and planet core (`0..8`), an integer denominator for the coordinate transition factor (`1/4..1/64`, adjustable one integer at a time), and core size (`8..128`, in blocks). The draft is held only for the lifetime of its Create World screen. A server-side creation adapter hands its frozen `UniverseWorldType` to `UniverseWorldCreationBridge` only after every local level has been registered and the generator adapters have reported their Bedrock planes. The bridge writes one versioned `SavedData` record per save and restores the runtime graph only after all levels are available. The client editor never owns the persisted state and cannot alter an existing world or silently change vanilla generation.
+The planet settings currently edit a validated creation draft: number of dimensions between space and planet core (`0..8`), an integer denominator for the coordinate transition factor (`1/4..1/64`, adjustable one integer at a time), and core size (`8..128`, in blocks). The draft is held only for the lifetime of its Create World screen. A server-side creation adapter hands its frozen `UniverseWorldType` to `UniverseWorldCreationBridge` only after every local level has been registered and the generator adapters have reported their Bedrock planes. The bridge writes one versioned `SavedData` record per save: static world geometry and a separately versioned moving R³ runtime state. The client editor never owns the persisted state and cannot alter an existing world or silently change vanilla generation.
 
 When Immersive Portals is present and Universe is selected, its `Dimension Stack` button in the More tab is visibly disabled with an explanation. DynamicUniverse also clears an already-pending Dimension Stack selection through a client-only optional compatibility adapter, so a user cannot first confirm a stack and then create an incompatible Universe world. A dedicated-server Dimension Stack preset remains outside the client world-creation UI and must be disabled in that server's Immersive Portals configuration.
 

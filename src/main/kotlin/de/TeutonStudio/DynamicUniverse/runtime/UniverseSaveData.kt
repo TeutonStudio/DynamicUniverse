@@ -21,6 +21,7 @@ import de.TeutonStudio.DynamicUniverse.worldtype.PlanetDimensionStack
 import de.TeutonStudio.DynamicUniverse.worldtype.Star
 import de.TeutonStudio.DynamicUniverse.worldtype.UniverseWorldType
 import de.TeutonStudio.DynamicUniverse.worldtype.VerticalLoop
+import de.TeutonStudio.DynamicUniverse.worldtype.VerticalDimensionSeam
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -77,7 +78,7 @@ data class PersistedUniverseDefinition(
         }
     }
 
-    companion object { const val CURRENT_FORMAT_VERSION = 2 }
+    companion object { const val CURRENT_FORMAT_VERSION = 3 }
 }
 
 private fun defaultRuntimeState(worldType: UniverseWorldType): UniverseRuntimeState {
@@ -185,6 +186,7 @@ private fun UniverseWorldType.toTag(): CompoundTag = CompoundTag().apply {
     putString("universeDimension", this@toTag.universeDimension.value)
     put("galaxies", this@toTag.galaxies.toTag { it.toTag() })
     put("isolatedUniverses", this@toTag.isolatedUniverses.toTag { it.toTag() })
+    put("verticalSeams", this@toTag.verticalSeams.toTag { it.toTag() })
 }
 
 private fun CompoundTag.toWorldType(): UniverseWorldType = UniverseWorldType(
@@ -192,6 +194,10 @@ private fun CompoundTag.toWorldType(): UniverseWorldType = UniverseWorldType(
     universeDimension = DimensionId(getString("universeDimension")),
     galaxies = getList("galaxies", Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toGalaxy() },
     isolatedUniverses = getList("isolatedUniverses", Tag.TAG_COMPOUND.toInt()).map { it.asCompound().toIsolatedUniverse() },
+    verticalSeams = takeIf { contains("verticalSeams", Tag.TAG_LIST.toInt()) }
+        ?.getList("verticalSeams", Tag.TAG_COMPOUND.toInt())
+        ?.map { it.asCompound().toVerticalSeam() }
+        ?: listOf(VerticalDimensionSeam.overworldToAether()),
 )
 
 private fun Galaxy.toTag(): CompoundTag = CompoundTag().apply {
@@ -276,6 +282,20 @@ private fun CompoundTag.toIsolatedUniverse(): IsolatedUniverseDefinition = Isola
     id = getString("id"),
     dimension = DimensionId(getString("dimension")),
     verticalLoop = VerticalLoop.valueOf(getString("verticalLoop")),
+)
+
+private fun VerticalDimensionSeam.toTag(): CompoundTag = CompoundTag().apply {
+    putString("id", this@toTag.id)
+    putString("lower", lowerDimension.value)
+    putString("upper", upperDimension.value)
+    put("scale", coordinateScale.toTag())
+}
+
+private fun CompoundTag.toVerticalSeam() = VerticalDimensionSeam(
+    id = getString("id"),
+    lowerDimension = DimensionId(getString("lower")),
+    upperDimension = DimensionId(getString("upper")),
+    coordinateScale = getCompound("scale").toScale(),
 )
 
 private fun BedrockBoundaryPlane.toTag(): CompoundTag = CompoundTag().apply {

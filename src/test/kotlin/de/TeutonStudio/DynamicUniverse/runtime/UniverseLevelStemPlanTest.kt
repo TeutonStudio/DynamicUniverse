@@ -23,7 +23,7 @@ class UniverseLevelStemPlanTest {
         assertEquals(UniverseStemTemplate.EXTERNAL, plan.templates[DimensionId("undergarden:undergarden")])
         assertTrue(plan.templates.containsKey(DimensionId("minecraft:overworld")))
         assertEquals(UniverseStemTemplate.EXTERNAL, plan.templates[DimensionId("aether:the_aether")])
-        assertTrue(plan.templates.containsKey(DimensionId("dynamicuniverse:created/universe")))
+        assertEquals(UniverseStemTemplate.UNIVERSE_HOST, plan.templates[DimensionId("dynamicuniverse:created/universe")])
 
         val corePlanes = plan.bedrockPlanes.filter { it.dimension.value == "dynamicuniverse:created/planet/0/0/0/core" }
         assertTrue(corePlanes.isEmpty())

@@ -9,6 +9,7 @@ import de.TeutonStudio.DynamicUniverse.dimension.LocalEuclideanPortal
 import de.TeutonStudio.DynamicUniverse.dimension.LocalEuclideanPortalGraph
 import de.TeutonStudio.DynamicUniverse.dimension.LocalPortalEndpoint
 import de.TeutonStudio.DynamicUniverse.dimension.DimensionConnectionKind
+import de.TeutonStudio.DynamicUniverse.dimension.DimensionBoundaryFace
 
 /** The configurable Universe world type. It has no client or portal-mod dependency. */
 data class UniverseWorldType(
@@ -16,12 +17,18 @@ data class UniverseWorldType(
     val universeDimension: DimensionId,
     val galaxies: List<Galaxy>,
     val isolatedUniverses: List<IsolatedUniverseDefinition> = listOf(IsolatedUniverseDefinition.end()),
+    /** Optional external seams are active only when both referenced levels are available. */
+    val verticalSeams: List<VerticalDimensionSeam> = listOf(VerticalDimensionSeam.overworldToAether()),
 ) {
     init {
         require(id.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) { "Universe id must be namespaced." }
         require(galaxies.isNotEmpty()) { "A Universe needs at least one galaxy." }
         require(galaxies.map(Galaxy::id).distinct().size == galaxies.size) { "Galaxy ids must be unique." }
         require(isolatedUniverses.map(IsolatedUniverseDefinition::id).distinct().size == isolatedUniverses.size) { "Isolated universe ids must be unique." }
+        require(verticalSeams.map(VerticalDimensionSeam::id).distinct().size == verticalSeams.size) { "Vertical seam ids must be unique." }
+        require(verticalSeams.flatMap { listOf(it.lowerDimension to DimensionBoundaryFace.UPPER, it.upperDimension to DimensionBoundaryFace.LOWER) }.distinct().size == verticalSeams.size * 2) {
+            "A vertical dimension boundary may only have one seam."
+        }
 
         val planets = galaxies.flatMap { galaxy -> galaxy.groups.flatMap { it.allPlanets() } }
         require(planets.map(Planet::id).distinct().size == planets.size) { "Planet ids must be unique per Universe." }
@@ -67,6 +74,30 @@ data class IsolatedUniverseDefinition(
 }
 
 enum class VerticalLoop { NONE, BOTH_DIRECTIONS }
+
+/**
+ * An air-to-air seam between the top of the lower world and the bottom of the upper world.
+ * Its reverse is implicit: falling below the upper world returns to the lower world's top.
+ */
+data class VerticalDimensionSeam(
+    val id: String,
+    val lowerDimension: DimensionId,
+    val upperDimension: DimensionId,
+    val coordinateScale: DimensionScale = DimensionScale.ONE,
+) {
+    init {
+        require(id.matches(Regex("[a-z0-9_./:-]+"))) { "Invalid vertical seam id." }
+        require(lowerDimension != upperDimension) { "A cross-dimension seam needs distinct levels." }
+    }
+
+    companion object {
+        fun overworldToAether() = VerticalDimensionSeam(
+            id = "dynamicuniverse:overworld-to-aether",
+            lowerDimension = DimensionId("minecraft:overworld"),
+            upperDimension = DimensionId("aether:the_aether"),
+        )
+    }
+}
 
 data class Galaxy(
     val id: String,
