@@ -12,5 +12,6 @@ class IsolatedUniverseTraversalTest {
 
         assertEquals(SpatialPosition(12.0, 319.0, -4.0), IsolatedUniverseTraversal.reenter(SpatialPosition(12.0, -65.0, -4.0), bounds, VerticalLoop.BOTH_DIRECTIONS))
         assertEquals(SpatialPosition(12.0, -63.0, -4.0), IsolatedUniverseTraversal.reenter(SpatialPosition(12.0, 321.0, -4.0), bounds, VerticalLoop.BOTH_DIRECTIONS))
+        assertEquals(SpatialPosition(12.0, -64.0, -4.0), IsolatedUniverseTraversal.reenter(SpatialPosition(12.0, 320.0, -4.0), bounds, VerticalLoop.BOTH_DIRECTIONS))
     }
 }

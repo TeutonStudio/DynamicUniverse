@@ -76,5 +76,6 @@ class UniverseWorldTypeTest {
         assertEquals(DimensionBoundaryFace.LOWER, portal.target.face)
         assertEquals(coreToMantle.boundarySurface, portal.boundary)
         assertEquals(VerticalLoop.BOTH_DIRECTIONS, worldType.isolatedUniverses.single { it.id == "end" }.verticalLoop)
+        assertEquals(VerticalDimensionSeam.overworldToAether(), worldType.verticalSeams.single())
     }
 }

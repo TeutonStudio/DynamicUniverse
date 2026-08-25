@@ -73,7 +73,7 @@ data class UniverseLevelStemPlan(
                     PlanetDimensionRole.CUSTOM -> Unit
                 }
             }
-            templates.putIfAbsent(worldType.universeDimension, UniverseStemTemplate.VOID)
+            templates.putIfAbsent(worldType.universeDimension, UniverseStemTemplate.UNIVERSE_HOST)
             return UniverseLevelStemPlan(worldType, templates, planes)
         }
 
@@ -89,4 +89,4 @@ data class UniverseLevelStemPlan(
     }
 }
 
-enum class UniverseStemTemplate { OVERWORLD, NETHER, CORE, VOID, EXTERNAL }
+enum class UniverseStemTemplate { OVERWORLD, NETHER, CORE, VOID, EXTERNAL, UNIVERSE_HOST }

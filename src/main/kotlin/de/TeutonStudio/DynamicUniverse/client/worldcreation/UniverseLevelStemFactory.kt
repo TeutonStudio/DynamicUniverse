@@ -32,12 +32,16 @@ object UniverseLevelStemFactory {
         val void = requireNotNull(dimensions[levelStemKey(DimensionId(DEFAULT_VOID_TEMPLATE))]) {
             "The selected Universe preset has no void generator template."
         }
+        val universeHost = requireNotNull(dimensions[levelStemKey(DimensionId(DEFAULT_UNIVERSE_HOST_TEMPLATE))]) {
+            "The selected Universe preset has no Universe-host generator template."
+        }
 
         val templateSources = mapOf(
             UniverseStemTemplate.OVERWORLD to overworld,
             UniverseStemTemplate.NETHER to nether,
             UniverseStemTemplate.CORE to core,
             UniverseStemTemplate.VOID to void,
+            UniverseStemTemplate.UNIVERSE_HOST to universeHost,
         )
         // Replace the preset's default generated layers when the editor produced a different
         // universe. Leaving them in would create unreferenced, permanently loaded levels.
@@ -109,4 +113,5 @@ object UniverseLevelStemFactory {
 
     private const val DEFAULT_CORE_TEMPLATE = "dynamicuniverse:created/planet/0/0/0/core"
     private const val DEFAULT_VOID_TEMPLATE = "dynamicuniverse:created/planet/0/0/0/sky"
+    private const val DEFAULT_UNIVERSE_HOST_TEMPLATE = "dynamicuniverse:created/universe"
 }

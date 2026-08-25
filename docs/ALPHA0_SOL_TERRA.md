@@ -111,5 +111,18 @@ retains the original template only as provenance. Template updates never change
 an existing local profile.
 
 The End is a red, isolated universe. It is never selectable as a Terra stack
-layer. Its vertical lower and upper overflows loop back into the End without an
-editor hint or Terra portal connection.
+layer. The End and the technical All host loop their actual lower and upper
+build-height overflows back into themselves without an editor hint or Terra portal
+connection. With Immersive Portals available this is materialized as global
+horizontal portals; the server-side listener is the fallback without that optional mod.
+
+The Overworld-to-Aether route is a separate optional vertical air seam, not a
+Terra radial layer: rising through the Overworld's upper build bound enters the
+Aether at its lower bound; falling below the Aether returns to the Overworld
+top. The seam activates only when Aether has registered its own level stem. With
+Immersive Portals it is represented by two global horizontal portal planes and
+therefore does not impose a dimension-change loading screen. The Overworld plane
+is a ceiling visible from below; the Aether plane is a floor visible from above.
+Arrivals are offset four blocks into their target level, preventing Aether's
+lower-bound "descending" transition. DynamicUniverse also suppresses Aether's
+standard travel-screen packets only while this IP-owned seam is active.

@@ -39,11 +39,23 @@ class UniverseRuntimeRegistry : UniverseRuntimeApi {
 
 object UniverseRuntime {
     private val registry = UniverseRuntimeRegistry()
+    private var activeState: UniverseRuntimeState? = null
+    private var activeHost: UniverseHost? = null
 
     fun api(): UniverseRuntimeApi = registry
+    fun state(): UniverseRuntimeState? = activeState
+    fun host(): UniverseHost? = activeHost
+    fun installState(state: UniverseRuntimeState) {
+        activeState = state
+        activeHost = state.restoreHost()
+    }
 
     /** Called by the server lifecycle before a save is restored or discarded. */
-    fun clear() = registry.clear()
+    fun clear() {
+        registry.clear()
+        activeState = null
+        activeHost = null
+    }
 }
 
 data class RegisteredPlanet(

@@ -18,7 +18,7 @@ class UniverseTransitionRuntimeTest {
         UniverseGeometryManifest(
             universe = de.TeutonStudio.DynamicUniverse.cosmos.UniverseFrame("dynamicuniverse:test/universe"),
             layers = listOf(LayerGeometry(layer, HorizontalPeriod(1024))),
-            airBuffers = emptyList(), links = emptyList(), planetFrames = emptyList(),
+            airBuffers = emptyList(), links = emptyList(), planetSpaces = emptyList(),
             isolatedUniverses = listOf(IsolatedUniverseDefinition.end()),
         ),
     )

@@ -17,7 +17,7 @@ object IsolatedUniverseTraversal {
         val height = bounds.upperY - bounds.lowerY
         val wrappedY = when {
             position.y < bounds.lowerY -> bounds.upperY - ((bounds.lowerY - position.y) % height)
-            position.y > bounds.upperY -> bounds.lowerY + ((position.y - bounds.upperY) % height)
+            position.y >= bounds.upperY -> bounds.lowerY + ((position.y - bounds.upperY) % height)
             else -> return null
         }
         return position.copy(y = wrappedY)

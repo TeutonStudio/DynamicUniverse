@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.TeutonStudio.DynamicUniverse.compat.aether.mixin",
+  "plugin": "de.TeutonStudio.DynamicUniverse.compat.aether.mixin.OptionalAetherCompatMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AetherDimensionHooksMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
