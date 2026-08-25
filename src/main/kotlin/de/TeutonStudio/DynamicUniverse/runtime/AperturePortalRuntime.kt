@@ -1,5 +1,6 @@
 package de.TeutonStudio.DynamicUniverse.runtime
 
+import com.mojang.logging.LogUtils
 import net.minecraft.server.MinecraftServer
 import net.neoforged.fml.ModList
 
@@ -27,6 +28,7 @@ interface AperturePortalAdapter {
 }
 
 object AperturePortalRuntime {
+    private val logger = LogUtils.getLogger()
     @Volatile
     private var adapter: AperturePortalAdapter? = null
 
@@ -45,6 +47,8 @@ object AperturePortalRuntime {
                 "de.TeutonStudio.DynamicUniverse.compat.immersiveportals.ImmersivePortalApertureAdapter",
             )
             (type.getDeclaredConstructor().newInstance() as AperturePortalAdapter).also { adapter = it }
+        }.onFailure { error ->
+            logger.error("DynamicUniverse could not initialize the Immersive Portals aperture adapter.", error)
         }.getOrNull()
     }
 
@@ -55,11 +59,11 @@ object AperturePortalRuntime {
 
     fun remove(server: MinecraftServer, apertureIds: Collection<String>) {
         if (apertureIds.isEmpty()) return
-        runCatching { adapter()?.remove(server, apertureIds) }
+        attempt("remove ${apertureIds.size} aperture portal(s)") { adapter()?.remove(server, apertureIds) }
     }
 
     fun prune(server: MinecraftServer, validApertureIds: Set<String>) {
-        runCatching { adapter()?.prune(server, validApertureIds) }
+        attempt("prune aperture portals") { adapter()?.prune(server, validApertureIds) }
     }
 
     fun rebuildPaired(
@@ -67,7 +71,7 @@ object AperturePortalRuntime {
         manifest: UniverseGeometryManifest,
         aperture: PairedBoundaryAperture,
     ) {
-        runCatching { adapter()?.rebuildPaired(server, manifest, planes, aperture) }
+        attempt("rebuild paired aperture ${aperture.id}") { adapter()?.rebuildPaired(server, manifest, planes, aperture) }
     }
 
     fun rebuildCore(
@@ -77,6 +81,14 @@ object AperturePortalRuntime {
         aperture: CoreBoundaryAperture,
         projection: CoreApertureProjection,
     ) {
-        runCatching { adapter()?.rebuildCore(server, manifest, planes, geometry, aperture, projection) }
+        attempt("rebuild core aperture ${aperture.id}") {
+            adapter()?.rebuildCore(server, manifest, planes, geometry, aperture, projection)
+        }
+    }
+
+    private inline fun attempt(operation: String, action: () -> Unit) {
+        runCatching(action).onFailure { error ->
+            logger.error("DynamicUniverse failed to $operation.", error)
+        }
     }
 }

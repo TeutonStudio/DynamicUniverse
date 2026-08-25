@@ -35,7 +35,7 @@ class UniverseTransitionRuntimeTest {
         val connection = DimensionConnection("dynamicuniverse:test/link", layer, target, DimensionScale(8))
         val result = planner.vertical(connection, TraversalState(SpatialPosition(2.0, 10.0, -3.0), SpatialVelocity(1.0, 0.0, -1.0)))
         assertEquals(target, result.target)
-        assertEquals(SpatialPosition(16.0, 80.0, -24.0), result.state.position)
+        assertEquals(SpatialPosition(16.0, 10.0, -24.0), result.state.position)
         assertEquals(SpatialVelocity(8.0, 0.0, -8.0), result.state.velocity)
     }
 }

@@ -50,6 +50,11 @@ data class CoreBoundaryAperture(
     val deepFace: DimensionBoundaryFace,
     val deepAnchor: HorizontalPosition,
     override val shape: ApertureShape = ApertureShape.SINGLE,
+    /**
+     * Stable core-side counterpart of the deep aperture. Older saves omit it and are resolved
+     * once through the legacy deterministic resolver before their next mutation.
+     */
+    val corePlacement: CoreAperturePlacement? = null,
 ) : PersistedBoundaryAperture
 
 internal fun HorizontalPeriod.canonical(position: HorizontalPosition): HorizontalPosition =

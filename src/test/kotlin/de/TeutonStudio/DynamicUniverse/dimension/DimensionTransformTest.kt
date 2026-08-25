@@ -10,7 +10,7 @@ import de.TeutonStudio.DynamicUniverse.cosmos.UniverseFrame
 
 class DimensionTransformTest {
     @Test
-    fun `travel factor scales coordinates and velocity but keeps physical scale one`() {
+    fun `travel factor scales horizontal coordinates and velocity but keeps gravity one to one`() {
         val link = DimensionConnection(
             id = "dynamicuniverse:test/core-to-surface",
             source = DimensionId("dynamicuniverse:test/core"),
@@ -20,12 +20,12 @@ class DimensionTransformTest {
         )
 
         assertEquals(1.0, link.physicalScale)
-        assertEquals(SpatialPosition(16.0, 4.0, -24.0), link.targetPosition(SpatialPosition(2.0, 0.5, -3.0)))
-        assertEquals(SpatialVelocity(8.0, 0.0, -4.0), link.targetVelocity(SpatialVelocity(1.0, 0.0, -0.5)))
+        assertEquals(SpatialPosition(16.0, 0.5, -24.0), link.targetPosition(SpatialPosition(2.0, 0.5, -3.0)))
+        assertEquals(SpatialVelocity(8.0, -1.25, -4.0), link.targetVelocity(SpatialVelocity(1.0, -1.25, -0.5)))
         assertEquals(SpatialPosition(2.0, 0.5, -3.0), link.inverse().targetPosition(link.targetPosition(SpatialPosition(2.0, 0.5, -3.0))))
         assertEquals(
-            TraversalState(SpatialPosition(16.0, 4.0, -24.0), SpatialVelocity(8.0, 0.0, -4.0)),
-            PortalTraversalReconciler.reconcile(link, TraversalState(SpatialPosition(2.0, 0.5, -3.0), SpatialVelocity(1.0, 0.0, -0.5))),
+            TraversalState(SpatialPosition(16.0, 0.5, -24.0), SpatialVelocity(8.0, -1.25, -4.0)),
+            PortalTraversalReconciler.reconcile(link, TraversalState(SpatialPosition(2.0, 0.5, -3.0), SpatialVelocity(1.0, -1.25, -0.5))),
         )
     }
 

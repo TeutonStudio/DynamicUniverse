@@ -45,11 +45,11 @@ class BoundaryApertureSaveData private constructor(
 
     companion object {
         private const val DATA_ID = "dynamicuniverse_apertures"
-        private const val FORMAT_VERSION = 1
+        private const val FORMAT_VERSION = 2
         private val FACTORY = SavedData.Factory(
             ::BoundaryApertureSaveData,
             { tag, _ ->
-                require(tag.getInt("version") == FORMAT_VERSION) {
+                require(tag.getInt("version") in 1..FORMAT_VERSION) {
                     "Unsupported DynamicUniverse aperture save version: ${tag.getInt("version")}"
                 }
                 BoundaryApertureSaveData(
@@ -86,6 +86,9 @@ private fun CoreBoundaryAperture.toTag(): CompoundTag = CompoundTag().apply {
     putString("deepFace", this@toTag.deepFace.name)
     put("deepAnchor", this@toTag.deepAnchor.toTag())
     put("shape", this@toTag.shape.toTag())
+    this@toTag.corePlacement?.let { placement ->
+        put("corePlacement", placement.toTag())
+    }
 }
 
 private fun CompoundTag.toPairedAperture() = PairedBoundaryAperture(
@@ -106,6 +109,23 @@ private fun CompoundTag.toCoreAperture() = CoreBoundaryAperture(
     deepFace = DimensionBoundaryFace.valueOf(getString("deepFace")),
     deepAnchor = getCompound("deepAnchor").toHorizontalPosition(),
     shape = getList("shape", Tag.TAG_COMPOUND.toInt()).toApertureShape(),
+    corePlacement = if (contains("corePlacement", Tag.TAG_COMPOUND.toInt())) {
+        getCompound("corePlacement").toCoreAperturePlacement()
+    } else null,
+)
+
+private fun CoreAperturePlacement.toTag(): CompoundTag = CompoundTag().apply {
+    putString("face", this@toTag.face.name)
+    putInt("originU", this@toTag.originU)
+    putInt("originV", this@toTag.originV)
+    putInt("rotationQuarterTurns", this@toTag.rotationQuarterTurns)
+}
+
+private fun CompoundTag.toCoreAperturePlacement() = CoreAperturePlacement(
+    face = CoreShellFace.valueOf(getString("face")),
+    originU = getInt("originU"),
+    originV = getInt("originV"),
+    rotationQuarterTurns = getInt("rotationQuarterTurns"),
 )
 
 private fun HorizontalPosition.toTag(): CompoundTag = CompoundTag().apply {

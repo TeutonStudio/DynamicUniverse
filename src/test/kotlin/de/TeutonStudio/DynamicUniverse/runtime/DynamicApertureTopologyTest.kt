@@ -86,4 +86,34 @@ class DynamicApertureTopologyTest {
             assertTrue(cell.v in 3 until 61)
         }
     }
+
+    @Test
+    fun `persisted core placement keeps a core-originated aperture at its selected shell cell`() {
+        val geometry = PlanetCoreGeometry(
+            planetId = "terra",
+            connectionId = "terra/main/core-to-deep",
+            coreDimension = DimensionId("dynamicuniverse:terra/core"),
+            deepDimension = DimensionId("dynamicuniverse:terra/deep"),
+            edgeBlocks = 64,
+            edgeMarginBlocks = 3,
+        )
+        val placement = CoreAperturePlacement(CoreShellFace.POSITIVE_Y, 20, 21, 1)
+        val aperture = CoreBoundaryAperture(
+            id = "core-origin",
+            connectionId = geometry.connectionId,
+            createdSequence = 1,
+            planetId = geometry.planetId,
+            deepDimension = geometry.deepDimension,
+            deepFace = DimensionBoundaryFace.LOWER,
+            deepAnchor = HorizontalPosition(0, 0),
+            shape = ApertureShape(setOf(ApertureCell(0, 0), ApertureCell(1, 0))),
+            corePlacement = placement,
+        )
+
+        val projections = assertNotNull(PlanetCoreProjectionResolver().resolve(geometry, listOf(aperture)))
+        val projection = assertNotNull(projections[aperture.id])
+        assertEquals(CoreShellCell(CoreShellFace.POSITIVE_Y, 20, 21), projection.mapping[ApertureCell(0, 0)])
+        assertEquals(CoreShellCell(CoreShellFace.POSITIVE_Y, 20, 22), projection.mapping[ApertureCell(1, 0)])
+        assertEquals(ApertureCell(1, 0), placement.unproject(CoreShellCell(CoreShellFace.POSITIVE_Y, 20, 22)))
+    }
 }

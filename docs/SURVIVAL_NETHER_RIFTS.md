@@ -64,25 +64,27 @@ einem widersprüchlichen Portal zusammenschweißen.
 
 ## Planetenkern
 
-Die Verbindung zum Planetenkern ist die Ausnahme. Der tiefe Nether beziehungsweise
-die erste Nicht-Kern-Schicht ist alleinige persistente Wahrheit.
+Die Verbindung zum Planetenkern ist die Ausnahme. Ein Riss darf auf der Deep-
+oder der Kernseite begonnen werden. Ein Kernbruch reserviert die angeklickte
+kantenfreie Kernzelle und erzeugt atomar ein freies Gegenstück in der
+Deep-Schicht.
 
-Gespeichert werden dort nur:
+Gespeichert werden:
 
 - Apertur-ID und Erstellungsreihenfolge;
 - Planet und Connection-ID;
 - Deep-Layer-Dimension und Grenzseite;
-- kanonischer Deep-Layer-Anker;
-- lokale Aperturform.
+- kanonischer Deep-Layer-Anker und lokale Aperturform;
+- feste Kernfläche, lokaler Kernanker und Vierteldrehung.
 
-Es werden keine Kernkoordinaten gespeichert. Der
-`PlanetCoreProjectionResolver` ordnet alle Deep-Layer-Aperturen deterministisch
-einer der sechs Würfelflächen zu. Eine Projektion ist nur zulässig, wenn die
-vollständige Form mit Sicherheitsrand auf genau einer Fläche liegt und keine
-bereits zugewiesene Kernöffnung schneidet oder direkt berührt.
+Der `PlanetCoreProjectionResolver` sucht für Deep-initiierte Risse
+deterministisch eine freie Kernposition und persistiert die gewählte Zuordnung.
+Eine Projektion ist nur zulässig, wenn die vollständige Form mit Sicherheitsrand
+auf genau einer Fläche liegt und keine bereits zugewiesene Kernöffnung schneidet
+oder direkt berührt.
 
-Ist keine kantenfreie Projektion möglich, bleibt der auslösende Deep-Layer-
-Bedrockblock erhalten. Bedrock auf der Kernseite selbst kann keine neue
+Ist keine kantenfreie Projektion oder kein freies Deep-Gegenstück möglich,
+bleibt der auslösende Block erhalten. Kanten und Ecken des Kerns können keine
 Apertur erzeugen oder vergrößern.
 
 ## Persistenz und Wiederaufbau
@@ -95,7 +97,7 @@ Beim Serverstart:
 
 1. wird das Universe-Manifest rekonstruiert;
 2. werden Deep-Layer-Aperturen geladen;
-3. werden Planetenkern-Projektionen erneut deterministisch berechnet;
+3. werden persistierte Planetenkern-Projektionen wiederhergestellt;
 4. werden die entsprechenden Kernblöcke geöffnet;
 5. werden Portalansichten aus dem logischen Aperturzustand abgeglichen.
 

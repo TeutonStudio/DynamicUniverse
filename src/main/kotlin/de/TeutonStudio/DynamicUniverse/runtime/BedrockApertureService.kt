@@ -42,11 +42,14 @@ class ServerBedrockApertureBridge(
     fun prepareBedrockBreak(sourceLevel: ServerLevel, sourcePos: BlockPos): BedrockBreakPreparation {
         if (!sourceLevel.getBlockState(sourcePos).`is`(Blocks.BEDROCK)) return BedrockBreakPreparation.Ignored
         val dimension = DimensionId(sourceLevel.dimension().location().toString())
-        val resolved = resolveBoundary(dimension, sourcePos.y) ?: return BedrockBreakPreparation.Ignored
+        val resolved = resolveBoundary(dimension, sourcePos) ?: return BedrockBreakPreparation.Ignored
         val core = coreByConnection[resolved.connection.id]
         return if (core != null) {
-            if (dimension != core.deepDimension) BedrockBreakPreparation.Rejected("Planet-core apertures are authoritative from the deep side only.")
-            else prepareCoreBreak(sourceLevel, sourcePos, resolved, core)
+            when (dimension) {
+                core.deepDimension -> prepareCoreBreak(sourceLevel, sourcePos, resolved, core)
+                core.coreDimension -> prepareCoreBreakFromCore(sourceLevel, sourcePos, resolved, core)
+                else -> BedrockBreakPreparation.Ignored
+            }
         } else {
             preparePairedBreak(sourceLevel, sourcePos, resolved)
         }
@@ -161,13 +164,16 @@ class ServerBedrockApertureBridge(
                 PlannedCore(aperture.copy(shape = aperture.shape.with(offset)))
             }
             else -> mergeCore(touching, deepPeriod, broken)
-        } ?: return BedrockBreakPreparation.Rejected("Core apertures could not be merged deterministically.")
+        }
 
         val nextApertures = oldApertures.filterNot { it.id in planned.removeIds || it.id == planned.aperture.id } + planned.aperture
         val oldProjection = coreResolver.resolve(geometry, oldApertures)
             ?: return BedrockBreakPreparation.Rejected("Existing core aperture projection is invalid.")
         val nextProjection = coreResolver.resolve(geometry, nextApertures)
             ?: return BedrockBreakPreparation.Rejected("No edge-safe planet-core projection is available.")
+        val persistedAperture = planned.aperture.copy(
+            corePlacement = requireNotNull(nextProjection[planned.aperture.id]).placement,
+        )
 
         val coreLevel = deepLevel.server.level(geometry.coreDimension)
             ?: return BedrockBreakPreparation.Rejected("Planet-core dimension is not loaded.")
@@ -205,26 +211,139 @@ class ServerBedrockApertureBridge(
         }
         return BedrockBreakPreparation.Accepted {
             atomicBlockChange(mutations) {
-                save.put(planned.aperture, planned.removeIds)
+                save.put(persistedAperture, planned.removeIds)
                 AperturePortalRuntime.rebuildCore(
                     deepLevel.server,
                     manifest,
                     geometry,
-                    planned.aperture,
-                    requireNotNull(nextProjection[planned.aperture.id]),
+                    persistedAperture,
+                    requireNotNull(nextProjection[persistedAperture.id]),
                 )
             }
         }
     }
 
-    private fun resolveBoundary(dimension: DimensionId, y: Int): ResolvedBoundary? {
+    private fun prepareCoreBreakFromCore(
+        coreLevel: ServerLevel,
+        sourcePos: BlockPos,
+        resolved: ResolvedBoundary,
+        geometry: PlanetCoreGeometry,
+    ): BedrockBreakPreparation {
+        val coreCell = coreResolver.shellCellAt(geometry, sourcePos)
+            ?: return BedrockBreakPreparation.Rejected("Planet-core apertures must start away from cube edges and corners.")
+        val connection = resolved.connection
+        val deepPeriod = periodByDimension[geometry.deepDimension]
+            ?: return BedrockBreakPreparation.Rejected("Missing deep-layer toroidal period.")
+        val deepPlane = planeByEndpoint[geometry.deepDimension to connection.targetBoundaryFace]
+            ?: return BedrockBreakPreparation.Rejected("Missing deep-layer Bedrock plane.")
+        val save = BoundaryApertureSaveData.forServer(coreLevel.server)
+        val oldApertures = save.coreApertures().filter { it.connectionId == geometry.connectionId }
+        val oldProjection = coreResolver.resolve(geometry, oldApertures)
+            ?: return BedrockBreakPreparation.Rejected("Existing core aperture projection is invalid.")
+
+        val touching = oldApertures.mapNotNull { aperture ->
+            val placement = oldProjection[aperture.id]?.placement ?: return@mapNotNull null
+            val cell = placement.unproject(coreCell) ?: return@mapNotNull null
+            if (aperture.shape.contains(cell) || aperture.shape.touches(cell)) aperture to cell else null
+        }
+        if (touching.size > 1) {
+            return BedrockBreakPreparation.Rejected("This core block would merge incompatible apertures.")
+        }
+
+        val planned = touching.singleOrNull()?.let { (aperture, cell) ->
+            val placement = requireNotNull(oldProjection[aperture.id]).placement
+            PlannedCore(aperture.copy(shape = aperture.shape.with(cell), corePlacement = placement)) to cell
+        } ?: run {
+            val (id, sequence) = save.allocateIdentity()
+            val deepAnchor = freeDeepAnchor(deepPeriod, sourcePos, oldApertures)
+                ?: return BedrockBreakPreparation.Rejected("No free deep-layer counterpart is available for this core aperture.")
+            PlannedCore(
+                CoreBoundaryAperture(
+                    id = id,
+                    connectionId = connection.id,
+                    createdSequence = sequence,
+                    planetId = geometry.planetId,
+                    deepDimension = geometry.deepDimension,
+                    deepFace = connection.targetBoundaryFace,
+                    deepAnchor = deepAnchor,
+                    corePlacement = CoreAperturePlacement(coreCell.face, coreCell.u, coreCell.v, 0),
+                ),
+            ) to ApertureCell(0, 0)
+        }
+        val (plannedCore, addedCell) = planned
+        val nextApertures = oldApertures.filterNot { it.id in plannedCore.removeIds || it.id == plannedCore.aperture.id } + plannedCore.aperture
+        val nextProjection = coreResolver.resolve(geometry, nextApertures)
+            ?: return BedrockBreakPreparation.Rejected("No edge-safe planet-core projection is available.")
+        val persistedAperture = plannedCore.aperture.copy(
+            corePlacement = requireNotNull(nextProjection[plannedCore.aperture.id]).placement,
+        )
+        val counterpart = deepPeriod.apply(persistedAperture.deepAnchor, addedCell).toBlockPos(deepPlane.y)
+            ?: return BedrockBreakPreparation.Rejected("Mapped deep-layer counterpart is outside Minecraft BlockPos range.")
+        val deepLevel = coreLevel.server.level(geometry.deepDimension)
+            ?: return BedrockBreakPreparation.Rejected("Deep-layer dimension is not loaded.")
+        if (!deepLevel.getBlockState(counterpart).`is`(Blocks.BEDROCK)) {
+            return BedrockBreakPreparation.Rejected("Mapped deep-layer counterpart is not Bedrock.")
+        }
+
+        val oldPositions = projectionBlocks(geometry, oldProjection)
+            ?: return BedrockBreakPreparation.Rejected("Existing core projection exceeds BlockPos range.")
+        val nextPositions = projectionBlocks(geometry, nextProjection)
+            ?: return BedrockBreakPreparation.Rejected("New core projection exceeds BlockPos range.")
+        val toClose = oldPositions - nextPositions
+        val toOpen = nextPositions - oldPositions
+        PlanetCoreShellMaterializer.ensurePositions(coreLevel, toOpen)
+        if (toOpen.any { pos ->
+                val state = coreLevel.getBlockState(pos)
+                !state.`is`(Blocks.BEDROCK) && !state.isAir
+            }) {
+            return BedrockBreakPreparation.Rejected("New core projection intersects player-modified blocks.")
+        }
+
+        val mutations = buildList {
+            add(BlockMutation(deepLevel, counterpart, deepLevel.getBlockState(counterpart), Blocks.AIR.defaultBlockState()))
+            toClose.forEach { pos -> add(BlockMutation(coreLevel, pos, coreLevel.getBlockState(pos), Blocks.BEDROCK.defaultBlockState())) }
+            toOpen.forEach { pos -> add(BlockMutation(coreLevel, pos, coreLevel.getBlockState(pos), Blocks.AIR.defaultBlockState())) }
+        }
+        return BedrockBreakPreparation.Accepted {
+            atomicBlockChange(mutations) {
+                save.put(persistedAperture, plannedCore.removeIds)
+                AperturePortalRuntime.rebuildCore(
+                    coreLevel.server,
+                    manifest,
+                    geometry,
+                    persistedAperture,
+                    requireNotNull(nextProjection[persistedAperture.id]),
+                )
+            }
+        }
+    }
+
+    private fun freeDeepAnchor(
+        period: HorizontalPeriod,
+        corePosition: BlockPos,
+        apertures: Collection<CoreBoundaryAperture>,
+    ): HorizontalPosition? = generateSequence(0) { it + 1 }.take(4096).map { attempt ->
+        HorizontalPosition(
+            period.canonical(corePosition.x.toLong() + attempt.toLong() * 7_919L),
+            period.canonical(corePosition.z.toLong() + attempt.toLong() * 10_007L),
+        )
+    }.firstOrNull { candidate ->
+        apertures.none { aperture ->
+            val offset = period.offset(aperture.deepAnchor, candidate)
+            aperture.shape.contains(offset) || aperture.shape.touches(offset)
+        }
+    }
+
+    private fun resolveBoundary(dimension: DimensionId, position: BlockPos): ResolvedBoundary? {
         val matches = manifest.links.filter { connection ->
             connection.kind == DimensionConnectionKind.RADIAL_BOUNDARY &&
                 connection.boundarySurface == BoundarySurface.BEDROCK &&
                 when (dimension) {
-                    connection.source -> coreByConnection[connection.id] == null &&
-                        planeByEndpoint[dimension to connection.sourceBoundaryFace]?.y == y
-                    connection.target -> planeByEndpoint[dimension to connection.targetBoundaryFace]?.y == y
+                    connection.source -> (
+                        coreByConnection[connection.id] == null &&
+                            planeByEndpoint[dimension to connection.sourceBoundaryFace]?.y == position.y
+                        ) || coreByConnection[connection.id]?.coreDimension == dimension
+                    connection.target -> planeByEndpoint[dimension to connection.targetBoundaryFace]?.y == position.y
                     else -> false
                 }
         }.mapNotNull { connection ->

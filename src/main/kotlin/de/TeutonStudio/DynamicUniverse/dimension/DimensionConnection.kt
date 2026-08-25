@@ -65,11 +65,24 @@ data class DimensionTransform(
 
     fun map(position: SpatialPosition): SpatialPosition {
         val relative = position - sourceAnchor
-        return targetAnchor + rotation.rotate(relative * coordinateScale.asDouble())
+        // Stack scale describes horizontal topology only. Scaling Y would make a player jump
+        // or fall at a different speed when crossing otherwise Euclidean layer boundaries.
+        val scaled = SpatialVector(
+            relative.x * coordinateScale.asDouble(),
+            relative.y,
+            relative.z * coordinateScale.asDouble(),
+        )
+        return targetAnchor + rotation.rotate(scaled)
     }
 
     fun mapVelocity(velocity: SpatialVelocity): SpatialVelocity =
-        rotation.rotate(velocity * coordinateScale.asDouble())
+        rotation.rotate(
+            SpatialVelocity(
+                velocity.x * coordinateScale.asDouble(),
+                velocity.y,
+                velocity.z * coordinateScale.asDouble(),
+            ),
+        )
 
     fun inverse(): DimensionTransform = DimensionTransform(
         coordinateScale = coordinateScale.inverse(),

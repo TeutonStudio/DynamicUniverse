@@ -36,7 +36,11 @@ data class UniverseGeometryManifest(
         }
     }
 
-    companion object { const val CURRENT_VERSION = 2 }
+    companion object {
+        const val CURRENT_VERSION = 3
+        /** Keeps rendered stack layers well outside the tallest generated dimension. */
+        const val RENDER_LAYER_SPACING_BLOCKS = 4096
+    }
 }
 
 data class LayerGeometry(
@@ -45,6 +49,9 @@ data class LayerGeometry(
     val seam: ToroidalSeamSpec = ToroidalSeamSpec.centered(period),
     val ownerId: String? = null,
     val role: PlanetDimensionRole = PlanetDimensionRole.CUSTOM,
+    /** The stack and position are render metadata; they never move local chunks. */
+    val renderStackId: String? = null,
+    val renderStackIndex: Int = 0,
 ) {
     /** Render-only pseudo radius; cosmic collision radius remains a separate body property. */
     val projectionRadiusBlocks: Double get() = period.blocks.toDouble() / (2.0 * PI)
@@ -129,7 +136,14 @@ object UniverseGeometryCompiler {
         var period = HorizontalPeriod(defaultCorePeriod)
         return layersInnerToOuter.mapIndexed { index, layer ->
             if (index > 0) period = scalePeriod(period, requireNotNull(layersInnerToOuter[index - 1].toOuterScale))
-            LayerGeometry(layer.dimension, period, ownerId = ownerId, role = layer.role)
+            LayerGeometry(
+                dimension = layer.dimension,
+                period = period,
+                ownerId = ownerId,
+                role = layer.role,
+                renderStackId = "$ownerId/$id",
+                renderStackIndex = index,
+            )
         }
     }
 

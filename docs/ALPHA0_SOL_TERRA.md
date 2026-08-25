@@ -78,31 +78,30 @@ Portals entities carry deterministic aperture tags and are rebuilt from the
 logical aperture state; stale persisted entities with the same tag are removed
 before materialization.
 
-## Planet-core exception
+## Planet-core aperture mapping
 
-The innermost Bedrock-to-Bedrock connection is asymmetric. The first non-core
-layer, currently the deep Nether in Terra's stack, is the sole authoritative
-location for player-created core openings. Destroying the projected Bedrock on
-the planet-core side is rejected.
+The innermost Bedrock-to-Bedrock connection has a protected cube-shell
+counterpart. A player may start a new opening on either the first non-core
+layer or the planet-core shell. Starting from the core reserves the selected
+interior shell cell and creates a free Deep-layer counterpart atomically;
+cube edges and corners remain ineligible.
 
-A persisted `CoreBoundaryAperture` contains only its planet/connection identity,
-creation sequence, deep-layer anchor and local aperture shape. No cube face or
-core `(x,y,z)` position is stored. `PlanetCoreProjectionResolver` derives those
-values deterministically from the saved deep aperture.
+A persisted `CoreBoundaryAperture` contains its planet/connection identity,
+creation sequence, deep-layer anchor, local aperture shape and a fixed
+core-shell placement (face, local origin and quarter-turn rotation). This
+makes a core-originated opening reversible and prevents later resolution from
+moving an existing hole.
 
-For every aperture the resolver searches deterministic candidates over the six
-cube faces, quarter-turn rotations and `(u,v)` offsets. A candidate is valid
-only when the complete shape lies on one face, stays inside the configured edge
-margin and does not overlap or directly touch an already assigned core opening.
-A newly created aperture therefore cannot land on a cube edge or corner. If no
-valid projection exists, the originating deep-layer Bedrock destruction is
-rejected.
+For a Deep-originated aperture the resolver searches deterministic candidates
+over the six cube faces, quarter-turn rotations and `(u,v)` offsets. The chosen
+candidate is persisted. Every placement is valid only when the complete shape
+lies on one face, stays inside the configured edge margin and does not overlap
+or directly touch an already assigned core opening.
 
-On server start the core holes are reconstructed from the deep-layer aperture
-records. If an aperture grows, its projection is recomputed deterministically;
-obsolete projected cells are restored to Bedrock and new cells are opened in
-one transaction. This makes the deep layer the persistent truth and the
-planet-core shell a reconstructible projection/cache.
+On server start the core holes are reconstructed from their persisted placements.
+Legacy records without a placement are resolved deterministically once. If an
+aperture grows, its fixed local mapping is extended; obsolete projected cells
+are restored to Bedrock and new cells are opened in one transaction.
 
 ## Local profiles and the End
 

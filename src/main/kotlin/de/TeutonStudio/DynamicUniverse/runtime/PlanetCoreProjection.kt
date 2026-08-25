@@ -9,11 +9,36 @@ enum class CoreShellFace { POSITIVE_X, NEGATIVE_X, POSITIVE_Y, NEGATIVE_Y, POSIT
 
 data class CoreShellCell(val face: CoreShellFace, val u: Int, val v: Int)
 
+/**
+ * A fixed local isometry from a deep-layer aperture cell to one cube-shell face. Persisting it
+ * makes a core-originated hole reversible and prevents a later resolver pass from moving it.
+ */
+data class CoreAperturePlacement(
+    val face: CoreShellFace,
+    val originU: Int,
+    val originV: Int,
+    val rotationQuarterTurns: Int,
+) {
+    init { require(rotationQuarterTurns in 0..3) { "Core aperture rotation must be a quarter turn." } }
+
+    fun project(cell: ApertureCell): CoreShellCell {
+        val rotated = rotate(cell, rotationQuarterTurns)
+        return CoreShellCell(face, originU + rotated.dx, originV + rotated.dz)
+    }
+
+    fun unproject(cell: CoreShellCell): ApertureCell? {
+        if (cell.face != face) return null
+        val local = ApertureCell(cell.u - originU, cell.v - originV)
+        return rotate(local, (4 - rotationQuarterTurns) % 4)
+    }
+}
+
 data class CoreApertureProjection(
     val apertureId: String,
-    val rotationQuarterTurns: Int,
+    val placement: CoreAperturePlacement,
     val mapping: Map<ApertureCell, CoreShellCell>,
 ) {
+    val rotationQuarterTurns: Int get() = placement.rotationQuarterTurns
     val cells: Set<CoreShellCell> get() = mapping.values.toSet()
 }
 
@@ -31,9 +56,12 @@ class PlanetCoreProjectionResolver(
         val result = linkedMapOf<String, CoreApertureProjection>()
 
         for (aperture in apertures.sortedWith(compareBy<CoreBoundaryAperture> { it.createdSequence }.thenBy { it.id })) {
-            val projection = sequence {
+            val candidates = aperture.corePlacement?.let { placement ->
+                sequenceOf(projectionFor(geometry, aperture, placement))
+            } ?: sequence {
                 for (attempt in 0 until maxAttemptsPerAperture) yield(candidate(geometry, aperture, edgeInt, attempt))
-            }.filterNotNull().firstOrNull { candidate ->
+            }
+            val projection = candidates.filterNotNull().firstOrNull { candidate ->
                 candidate.cells.none { it in occupied } && candidate.cells.flatMap(::neighbourhood).none { it in occupied }
             } ?: return null
             occupied += projection.cells
@@ -65,6 +93,37 @@ class PlanetCoreProjectionResolver(
         }
     }
 
+    /** Returns only interior face cells; cube edges and corners are never legal apertures. */
+    fun shellCellAt(geometry: PlanetCoreGeometry, position: BlockPos): CoreShellCell? {
+        val edge = geometry.edgeBlocks
+        if (edge !in 2..Int.MAX_VALUE.toLong()) return null
+        val n = edge.toInt()
+        val half = n / 2
+        val min = -half
+        val max = half - 1
+        fun index(value: Int): Int = value - min
+        val candidates = buildList {
+            if (position.x == max && position.y in min..max && position.z in min..max) add(CoreShellCell(CoreShellFace.POSITIVE_X, index(position.z), index(position.y)))
+            if (position.x == min && position.y in min..max && position.z in min..max) add(CoreShellCell(CoreShellFace.NEGATIVE_X, n - 1 - index(position.z), index(position.y)))
+            if (position.y == max && position.x in min..max && position.z in min..max) add(CoreShellCell(CoreShellFace.POSITIVE_Y, index(position.x), index(position.z)))
+            if (position.y == min && position.x in min..max && position.z in min..max) add(CoreShellCell(CoreShellFace.NEGATIVE_Y, index(position.x), n - 1 - index(position.z)))
+            if (position.z == max && position.x in min..max && position.y in min..max) add(CoreShellCell(CoreShellFace.POSITIVE_Z, index(position.x), index(position.y)))
+            if (position.z == min && position.x in min..max && position.y in min..max) add(CoreShellCell(CoreShellFace.NEGATIVE_Z, n - 1 - index(position.x), index(position.y)))
+        }
+        val cell = candidates.singleOrNull() ?: return null
+        return cell.takeIf { isInsideMargin(geometry, it) }
+    }
+
+    fun projectionFor(
+        geometry: PlanetCoreGeometry,
+        aperture: CoreBoundaryAperture,
+        placement: CoreAperturePlacement,
+    ): CoreApertureProjection? {
+        val mapping = aperture.shape.cells.associateWith(placement::project)
+        if (mapping.values.any { !isInsideMargin(geometry, it) }) return null
+        return CoreApertureProjection(aperture.id, placement, mapping)
+    }
+
     private fun candidate(
         geometry: PlanetCoreGeometry,
         aperture: CoreBoundaryAperture,
@@ -88,8 +147,8 @@ class PlanetCoreProjectionResolver(
         if (availableU <= 0 || availableV <= 0) return null
         val u0 = margin + floorMod(seed.substring(16, 24).toLong(16), availableU.toLong()).toInt()
         val v0 = margin + floorMod(seed.substring(24, 32).toLong(16), availableV.toLong()).toInt()
-        val mapping = normalizedByOriginal.mapValues { (_, cell) -> CoreShellCell(face, u0 + cell.dx, v0 + cell.dz) }
-        return CoreApertureProjection(aperture.id, rotation, mapping)
+        val placement = CoreAperturePlacement(face, u0 - minX, v0 - minZ, rotation)
+        return projectionFor(geometry, aperture, placement)
     }
 
     private fun rotate(cell: ApertureCell, quarterTurns: Int): ApertureCell = when (floorMod(quarterTurns, 4)) {
@@ -99,10 +158,21 @@ class PlanetCoreProjectionResolver(
         else -> ApertureCell(cell.dz, -cell.dx)
     }
 
+    private fun isInsideMargin(geometry: PlanetCoreGeometry, cell: CoreShellCell): Boolean =
+        cell.u in geometry.edgeMarginBlocks until (geometry.edgeBlocks.toInt() - geometry.edgeMarginBlocks) &&
+            cell.v in geometry.edgeMarginBlocks until (geometry.edgeBlocks.toInt() - geometry.edgeMarginBlocks)
+
     private fun neighbourhood(cell: CoreShellCell): List<CoreShellCell> = listOf(
         CoreShellCell(cell.face, cell.u + 1, cell.v),
         CoreShellCell(cell.face, cell.u - 1, cell.v),
         CoreShellCell(cell.face, cell.u, cell.v + 1),
         CoreShellCell(cell.face, cell.u, cell.v - 1),
     )
+}
+
+private fun rotate(cell: ApertureCell, quarterTurns: Int): ApertureCell = when (floorMod(quarterTurns, 4)) {
+    0 -> cell
+    1 -> ApertureCell(-cell.dz, cell.dx)
+    2 -> ApertureCell(-cell.dx, -cell.dz)
+    else -> ApertureCell(cell.dz, -cell.dx)
 }

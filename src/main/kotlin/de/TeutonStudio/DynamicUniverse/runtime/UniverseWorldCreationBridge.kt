@@ -43,6 +43,7 @@ object UniverseWorldCreationBridge {
 
     fun clear() {
         UniverseRuntime.clear()
+        de.TeutonStudio.DynamicUniverse.network.UniverseStackRenderSync.clear()
         BedrockApertureRuntime.clear()
         UniverseTransitionRuntime.clear()
     }
@@ -51,6 +52,7 @@ object UniverseWorldCreationBridge {
         val manifest = UniverseGeometryCompiler.compile(definition.worldType)
         UniverseRuntime.clear()
         UniverseRuntime.api().register(definition.worldType)
+        de.TeutonStudio.DynamicUniverse.network.UniverseStackRenderSync.install(manifest)
         BedrockApertureRuntime.install(manifest, definition.bedrockPlanes)
         BedrockApertureRuntime.reconcile(server)
         UniverseTransitionRuntime.install(manifest)

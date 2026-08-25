@@ -64,6 +64,10 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
                 sourceOrientation,
                 targetOrientation,
                 aperture.id,
+                // A dimension stack shares one Euclidean gravity frame. Its two exposed
+                // Bedrock faces point in opposite visual directions, but that must not turn
+                // falling velocity into upward velocity during traversal.
+                DQuaternion.identity,
             )
         }
     }
@@ -125,18 +129,18 @@ class ImmersivePortalApertureAdapter : AperturePortalAdapter {
         sourceOrientation: DQuaternion,
         targetOrientation: DQuaternion,
         apertureId: String,
+        forwardTraversalRotation: DQuaternion = multiply(targetOrientation, conjugate(sourceOrientation)),
     ) {
-        val forwardRotation = multiply(targetOrientation, conjugate(sourceOrientation))
-        val reverseRotation = multiply(sourceOrientation, conjugate(targetOrientation))
+        val reverseTraversalRotation = conjugate(forwardTraversalRotation)
         val forward = Portal(Portal.ENTITY_TYPE, sourceLevel)
         PortalAPI.setPortalPositionOrientationAndSize(forward, sourceCenter, sourceOrientation, 1.0, 1.0)
-        PortalAPI.setPortalTransformation(forward, targetLevel.dimension(), targetCenter, forwardRotation, 1.0)
+        PortalAPI.setPortalTransformation(forward, targetLevel.dimension(), targetCenter, forwardTraversalRotation, 1.0)
         forward.portalTag = "dynamicuniverse:aperture:$apertureId"
         PortalAPI.spawnServerEntity(forward)
 
         val reverse = Portal(Portal.ENTITY_TYPE, targetLevel)
         PortalAPI.setPortalPositionOrientationAndSize(reverse, targetCenter, targetOrientation, 1.0, 1.0)
-        PortalAPI.setPortalTransformation(reverse, sourceLevel.dimension(), sourceCenter, reverseRotation, 1.0)
+        PortalAPI.setPortalTransformation(reverse, sourceLevel.dimension(), sourceCenter, reverseTraversalRotation, 1.0)
         reverse.portalTag = "dynamicuniverse:aperture:$apertureId:reverse"
         PortalAPI.spawnServerEntity(reverse)
     }
