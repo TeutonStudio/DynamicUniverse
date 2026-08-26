@@ -22,6 +22,18 @@ The technical `UniverseHost` may keep several `SimulationBubble`s in named slots
 
 `All` is still a finite Minecraft level internally, so it is deliberately only the host for local bubbles—not the rendered universe itself. Planetary sphere shells, tessellated portal patches and far-distance rendering remain a later rendering phase; a single affine portal cannot represent a curved sphere.
 
+Every planetary body has a render/portal projection sphere in `UniverseSpace`. Its projection radius is derived from the total canonical horizontal area of the planet's designated surface projection layer, not from a circumference heuristic and not from the celestial body's physical collision radius. For a square surface layer with canonical period `L`,
+
+```text
+A_surface = L²
+4π r_projection² = A_surface
+r_projection = sqrt(A_surface / (4π)) = L / (2 sqrt(π))
+```
+
+For Terra the designated projection layer is the Overworld surface unless a local planet profile explicitly selects another surface layer. The complete canonical surface must be representable on the sphere, and the preferred visual mapping is equal-area so equal source areas occupy equal sphere areas. This projection is deliberately not a claim that the source topology and sphere topology are identical: a horizontally wrapped surface is `T²`, while the projection shell is `S²`. A deterministic projection atlas may therefore contain chart boundaries, seams or singular points; it must not fake a global homeomorphism merely to hide that topological mismatch.
+
+The projection sphere is a representation and curved portal surface, not a Minecraft block shell. Approaching it may refine from coarse planetary texture through height/biome and terrain LOD to local portal patches. Crossing the shell resolves the selected sphere point through the planet binding into the outermost enterable sky layer while preserving the logical surface coordinate represented by that point. The local Minecraft dimensions remain locally Euclidean; only their Universe-facing representation is spherical.
+
 Sable 2.0.3 is optional. `compat.sable.SableUniverseBridge` contains no direct Sable API reference, so an existing universe save restores without Sable. A Sable-side adapter can bind a sublevel to a spatial object and projects its local pose through that object before performing UniverseSpace work. Sable is supplied as `runtimeOnly` to `runClient`; final portal shells, sphere rendering and physical sublevel transfer are intentionally out of scope.
 
 ## Vertical dimension seams
