@@ -34,10 +34,49 @@ The body kind determines the coordinate factor for every radial layer step:
 - dwarf planet: 4;
 - moon: 2.
 
-For core edge period `K`, the period of layer `d` is `K × factor^d`. The
-render-only pseudo radius is `period / (2π)`; it is not a cosmic collision
-radius. Every air-to-air layer pair owns an automatic ten-block transition
-buffer, split five blocks on each side.
+For core edge period `K`, the period of layer `d` is `K × factor^d`. These
+periods describe the canonical horizontal coordinates of the local Minecraft
+layers; they do not directly define the rendered planet radius.
+
+Every planet selects one **surface projection layer**. For Terra this is the
+Overworld surface unless a local custom profile explicitly chooses another
+surface role. If that layer has square canonical period `L`, its complete
+horizontal area is
+
+```text
+A_surface = L²
+```
+
+The `UniverseSpace` projection sphere is chosen to have exactly that area:
+
+```text
+4π r_projection² = A_surface
+r_projection = sqrt(A_surface / (4π)) = L / (2 sqrt(π))
+```
+
+`r_projection` is a render/portal radius. It is neither the celestial collision
+radius nor the former circumference-derived pseudo radius `L / (2π)`. The
+purpose of the area-derived radius is to let the complete canonical surface be
+represented on the planetary sphere with an equal-area projection, so equal
+areas of the source surface occupy equal areas on the globe.
+
+This does not make the two surfaces topologically identical. A horizontally
+wrapped Minecraft surface is a torus `T²`, whereas the Universe projection
+shell is a sphere `S²`. The projection must therefore use a deterministic atlas
+with an accepted seam, chart boundary or singular point rather than pretending
+a globally continuous one-to-one homeomorphism exists. Every canonical surface
+location must nevertheless remain addressable from the sphere.
+
+The sphere itself is not built from blocks. It is a curved representation and
+portal surface embedded in `UniverseSpace`. Far away it may be rendered from a
+coarse planet texture; with decreasing distance the renderer may refine through
+height/biome data and terrain LOD into local portal patches. Crossing such a
+patch resolves the selected spherical point back to the corresponding planet
+coordinate and enters the outermost enterable sky layer. The local dimension
+stack remains locally Euclidean.
+
+Every air-to-air layer pair owns an automatic ten-block transition buffer,
+split five blocks on each side.
 
 The outermost sky layer connects to `UniverseSpace` as a seamless transition
 for Creative flight and complete Sable vehicles. Coordinate selection and
